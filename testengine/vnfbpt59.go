@@ -1,70 +1,26 @@
+//go:build ignore
+
 package testengine
 
 import (
-	"context"
+	"bptvnftester/utils"
 	"fmt"
-	"github.com/hhruszka/secretscanner"
+	"github.com/hhruszka/secretscanner/checkers"
+	"github.com/hhruszka/secretscanner/core"
 	"golang.org/x/exp/utf8string"
-	"linuxtester/utils"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var passwordRegex = regexp.MustCompile(`(?i)([^\s]*(?:p[a@]?ssw[0ord]*?|\w+pwd\w+|p[@a]ssw?|pss?wd|secr[et]*?|cert|su?[per]*?use?r|use?r|passphrase)[^\s]*)`)
 var sensitiveFilesRegex = regexp.MustCompile(`(?i)\.(pem|crt|cer|der|pfx|p12|cred|cert)$`)
 var sensitiveFilePathsRegex = regexp.MustCompile(`(?i).*(?:[\\/](?:config|configs|credential(?:s)?|secret(?:s)?|pass(?:word|wd)?|key(?:s)?|private|cert(?:ificate)?(?:s)?|token|ssl|tls|pki|trust)(?:[\\/]|$)).*`)
 var findFiles = regexp.MustCompile(`(?P<filepath>[^\s'"]*\/[^\s'"]+)`)
-
-// convertSyntax converts custom variable syntax $(VAR) to ${VAR}
-// so that os.Expand can recognize it.
-func convertSyntax(input string) string {
-	// Use a regular expression to match the $(VAR) pattern.
-	re := regexp.MustCompile(`\$\((\w+)\)`)
-	return re.ReplaceAllString(input, `$${$1}`)
-}
-
-// ExpandEnvMap recursively expands variables in a map.
-// Given a map of variable names to values, where some values may reference
-// other variables (using either ${VAR} or $(VAR) syntax),
-// it returns a new map with fully expanded values.
-func ExpandEnvMap(vars map[string]string) map[string]string {
-	expanded := make(map[string]string)
-
-	// Recursive helper to expand a single value.
-	var expand func(string) string
-	expand = func(s string) string {
-		// First convert our custom syntax.
-		s = convertSyntax(s)
-		// Use os.Expand with a lookup function that looks up variables
-		// in our map (recursively).
-		result := os.Expand(s, func(key string) string {
-			// If we've already expanded the variable, return it.
-			if val, ok := expanded[key]; ok {
-				return val
-			}
-			// Otherwise, if it exists in our original map, expand it.
-			if v, ok := vars[key]; ok {
-				res := expand(v)
-				// Cache the expanded result.
-				expanded[key] = res
-				return res
-			}
-			// If not found, return an empty string.
-			return ""
-		})
-		return result
-	}
-
-	// Expand every variable.
-	for key, value := range vars {
-		expanded[key] = expand(value)
-	}
-	return expanded
-}
 
 // PasswordCheckerIsFilePath checks if a word could be a file path
 func PasswordCheckerIsFilePath(word string) bool {
@@ -155,17 +111,13 @@ func stringify(lines []string) string {
 	return strings.Join(lines, "\n")
 }
 
-var excludedVARS = []string{"USER", "HOME", "PATH", "LANG", "HISTFILESIZE", "SHELL", "MAIL"}
-
-func isExcluded(value string) bool {
-	return slices.Contains(excludedVARS, strings.ToUpper(value))
-}
-
 // cnfbpt49 tests whether environment variables defined as part of a container's environment contains secrets.
 func vnfbpt59(testId string, depExecResults map[string]map[string]*ExecutionStatus) *ExecutionStatus {
 	var (
 		secrets []string
 	)
+
+	execTime := time.Now().UTC()
 
 	depID := AllTestCases[testId].Dependencies[0].Id
 	varName := AllTestCases[testId].Dependencies[0].VarName
@@ -189,7 +141,7 @@ func vnfbpt59(testId string, depExecResults map[string]map[string]*ExecutionStat
 		_ = user
 	}
 
-	is := secretscanner.NewSecretScanner(nil)
+	is := core.NewSecretScanner()
 	retCode := Success
 	envVars := make(map[string]string)
 
@@ -216,7 +168,7 @@ func vnfbpt59(testId string, depExecResults map[string]map[string]*ExecutionStat
 				files := findFiles.FindAllString(value, -1)
 				//fmt.Println(len(files), value)
 				for _, file := range files {
-					if secretscanner.PasswordCheckerIsFilePath(file) {
+					if checkers.PasswordCheckerIsFilePath(file) {
 						readable := utils.IsReadable(file)
 						if readable {
 							secrets = append(secrets, fmt.Sprintf("\tReadable: %s", file))
@@ -229,12 +181,12 @@ func vnfbpt59(testId string, depExecResults map[string]map[string]*ExecutionStat
 		}
 
 		match = sensitiveFilePathsRegex.FindAllString(value, 1)
-		if match != nil && secretscanner.PasswordCheckerIsFilePath(value) {
+		if match != nil && checkers.PasswordCheckerIsFilePath(value) {
 			secrets = append(secrets, fmt.Sprintf("%s=%s", name, value))
 
 			files := findFiles.FindAllString(value, -1)
 			for _, file := range files {
-				if secretscanner.PasswordCheckerIsFilePath(file) {
+				if checkers.PasswordCheckerIsFilePath(file) {
 					readable := utils.IsReadable(file)
 					if readable {
 						secrets = append(secrets, fmt.Sprintf("\tReadable: %s", file))
@@ -246,11 +198,11 @@ func vnfbpt59(testId string, depExecResults map[string]map[string]*ExecutionStat
 		}
 
 		match = sensitiveFilesRegex.FindAllString(value, 1)
-		if match != nil && secretscanner.PasswordCheckerIsFilePath(value) {
+		if match != nil && checkers.PasswordCheckerIsFilePath(value) {
 			secrets = append(secrets, fmt.Sprintf("%s=%s", name, value))
 			files := findFiles.FindAllString(value, -1)
 			for _, file := range files {
-				if secretscanner.PasswordCheckerIsFilePath(file) {
+				if checkers.PasswordCheckerIsFilePath(file) {
 					readable := utils.IsReadable(file)
 					if readable {
 						secrets = append(secrets, fmt.Sprintf("\tReadable: %s", file))
@@ -262,14 +214,12 @@ func vnfbpt59(testId string, depExecResults map[string]map[string]*ExecutionStat
 		}
 
 		if isToken || isLine {
-			valueMatches := is.ScanLine(context.TODO(), []byte(value))
+			valueMatches := is.ScanLine([]byte(value))
 			if valueMatches != nil && len(valueMatches) > 0 {
 				for _, valueMatch := range valueMatches {
 					if valueMatch != nil && valueMatch.Pattern.Confidence >= 3 {
-						foundSecrets := valueMatch.ToSecrets(0)
-						for _, secret := range foundSecrets {
-							secrets = append(secrets, fmt.Sprintf("%s: %s=%s", secret.SecretType, name, secret.SecretValue))
-						}
+						secret := valueMatch.ToSecrets(0, nil)
+						secrets = append(secrets, fmt.Sprintf("%s: %s=%s", secret.SecretType, name, secret.SecretValue))
 						retCode = GeneralError
 					}
 				}
@@ -278,7 +228,7 @@ func vnfbpt59(testId string, depExecResults map[string]map[string]*ExecutionStat
 		}
 
 		if isMultiLine {
-			valueMatches := is.ScanFile(context.TODO(), "", []byte(value))
+			_, valueMatches := is.ScanFile("", []byte(value))
 			if valueMatches != nil && len(valueMatches) > 0 {
 				for _, valueMatch := range valueMatches {
 					if valueMatch != nil && valueMatch.Confidence >= 3 {
@@ -293,5 +243,5 @@ func vnfbpt59(testId string, depExecResults map[string]map[string]*ExecutionStat
 	if len(secrets) > 0 {
 		retCode = GeneralError
 	}
-	return NewExecutionStatus(retCode, "", strings.Join(runtimeEnv, "\n"), strings.Join(secrets, "\n"))
+	return NewExecutionStatus(retCode, "", strings.Join(runtimeEnv, "\n"), strings.Join(secrets, "\n"), execTime)
 }

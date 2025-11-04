@@ -1,6 +1,9 @@
 package testengine
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
 
 // ExitCode is an enumeration of possible exit codes with descriptive names.
 // It provides a more idiomatic way to refer to exit codes within the Go application.
@@ -37,14 +40,47 @@ const (
 )
 
 type ExecutionStatus struct {
-	RetCode RetCode  `json:"RetCode"`
-	Error   []string `json:"Error"`
-	Stdout  []string `json:"Stdout"`
-	Stderr  []string `json:"Stderr"`
+	RetCode  RetCode   `json:"RetCode"`
+	Error    []string  `json:"Error"`
+	Stdout   []string  `json:"Stdout"`
+	Stderr   []string  `json:"Stderr"`
+	ExecTime time.Time `json:"ExecTime"`
+	Data     any       `json:"Data"`
 }
 
-func NewExecutionStatus(exitStatus RetCode, error string, stdout string, stderr string) *ExecutionStatus {
-	return &ExecutionStatus{RetCode: exitStatus, Error: strings.Split(error, "\n"), Stdout: strings.Split(stdout, "\n"), Stderr: strings.Split(stderr, "\n")}
+func NewExecutionStatus(exitStatus RetCode, error string, stdout string, stderr string, execTime time.Time) *ExecutionStatus {
+	return &ExecutionStatus{RetCode: exitStatus, Error: strings.Split(error, "\n"), Stdout: strings.Split(stdout, "\n"), Stderr: strings.Split(stderr, "\n"), ExecTime: execTime}
+}
+
+func NewExecutionStatusWithData(exitStatus RetCode, error string, stdout string, stderr string, execTime time.Time, data any) *ExecutionStatus {
+	st := NewExecutionStatus(exitStatus, error, stdout, stderr, execTime)
+	st.SetData(data)
+	return st
+}
+
+func (es *ExecutionStatus) SetData(data any) {
+	es.Data = data
+}
+
+func (es *ExecutionStatus) GetData() any {
+	return es.Data
+}
+
+type TestResultStatus int
+
+const (
+	Passed TestResultStatus = iota
+	Failed
+	Timeout
+	NotApplicable
+)
+
+type TestResults struct {
+	TestId     string
+	ExecStatus *ExecutionStatus
+	Status     TestResultStatus
+	Error      string
+	Data       any
 }
 
 type RegexMatches struct {

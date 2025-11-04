@@ -1,12 +1,13 @@
-//go:build linux && amd64
+//go:build linux
 
 package testengine
 
 import (
+	"bptvnftester/utils"
 	"fmt"
-	"linuxtester/utils"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -25,17 +26,20 @@ func enum05(testId string, depExecResults map[string]map[string]*ExecutionStatus
 		retCode = Success
 	)
 
+	execTime := time.Now().UTC()
 	procs, err = utils.ProcessMonitor(interval, probing)
 	if err != nil {
 		return nil
 	}
 
-	return NewExecutionStatus(retCode, "", "", "")
+	return NewExecutionStatus(retCode, "", "", "", execTime)
 }
 
 // vnfbpt44 checks if processes run by root are not writable by other users
 func vnfbpt44(testId string, depExecResults map[string]map[string]*ExecutionStatus) *ExecutionStatus {
 	retCode := Success
+	execTime := time.Now().UTC()
+
 	if procs == nil {
 		return nil
 	}
@@ -55,12 +59,13 @@ func vnfbpt44(testId string, depExecResults map[string]map[string]*ExecutionStat
 		retCode = GeneralError
 	}
 
-	return &ExecutionStatus{retCode, testError, nil, nil}
+	return NewExecutionStatus(retCode, strings.Join(testError, "\n"), "", "", execTime)
 }
 
 // vnfbpt45 checks if processes run by root are not invoked with files (as arguments) readable by other users
 func vnfbpt45(testId string, depExecResults map[string]map[string]*ExecutionStatus) *ExecutionStatus {
 	retCode := Success
+	execTime := time.Now().UTC()
 
 	if procs == nil {
 		return nil
@@ -87,12 +92,13 @@ func vnfbpt45(testId string, depExecResults map[string]map[string]*ExecutionStat
 		retCode = GeneralError
 	}
 
-	return &ExecutionStatus{retCode, testError, nil, nil}
+	return NewExecutionStatus(retCode, strings.Join(testError, "\n"), "", "", execTime)
 }
 
 // vnfbpt46 checks if processes run by root are not invoked with files writable by other users
 func vnfbpt46(testId string, depExecResults map[string]map[string]*ExecutionStatus) *ExecutionStatus {
 	retCode := Success
+	execTime := time.Now().UTC()
 
 	if procs == nil {
 		return nil
@@ -121,12 +127,14 @@ func vnfbpt46(testId string, depExecResults map[string]map[string]*ExecutionStat
 		retCode = GeneralError
 	}
 
-	return &ExecutionStatus{retCode, testError, nil, nil}
+	return NewExecutionStatus(retCode, strings.Join(testError, "\n"), "", "", execTime)
 }
 
 // vnfbpt47 checks if processes are not invoked with files containing secrets e.g. credentials
 func vnfbpt47(testId string, depExecResults map[string]map[string]*ExecutionStatus) *ExecutionStatus {
 	retCode := Success
+	execTime := time.Now().UTC()
+
 	if procs == nil {
 		return nil
 	}
@@ -158,12 +166,14 @@ func vnfbpt47(testId string, depExecResults map[string]map[string]*ExecutionStat
 		retCode = GeneralError
 	}
 
-	return &ExecutionStatus{retCode, testError, nil, nil}
+	return NewExecutionStatus(retCode, strings.Join(testError, "\n"), "", "", execTime)
 }
 
 // vnfbpt48 checks if processes are not invoked with secrets/credentials
 func vnfbpt48(testId string, depExecResults map[string]map[string]*ExecutionStatus) *ExecutionStatus {
 	retCode := Success
+	execTime := time.Now().UTC()
+
 	if procs == nil {
 		return nil
 	}
@@ -191,5 +201,5 @@ func vnfbpt48(testId string, depExecResults map[string]map[string]*ExecutionStat
 	if len(testError) > 0 {
 		retCode = GeneralError
 	}
-	return &ExecutionStatus{retCode, testError, nil, nil}
+	return NewExecutionStatus(retCode, strings.Join(testError, "\n"), "", "", execTime)
 }

@@ -5,14 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"linuxtester/log"
+	"go.uber.org/zap"
 	"maps"
 	"os"
 	"os/exec"
 	"os/user"
 	"slices"
-	sort2 "sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,12 +61,11 @@ func getTestCases(tests []string) map[string]*TestCase {
 	return selectedTestCases
 }
 
-// getTestCases returns the slice with test cases based on a parameter tests.
-// If tests is nil then all test cases are returned.
+// getTestIds returns a sorted list of test IDs based on the input slice or all available test case IDs if input is nil.
 func getTestIds(tests []string) []string {
 	if tests == nil {
 		testIds := slices.Collect(maps.Keys(AllTestCases))
-		sort2.Strings(testIds)
+		slices.Sort(testIds)
 		return testIds
 	}
 
@@ -78,19 +75,25 @@ func getTestIds(tests []string) []string {
 			selectedTestCases[testId] = AllTestCases[testId]
 		}
 		selectedTestIds = slices.Collect(maps.Keys(selectedTestCases))
-		sort2.Strings(selectedTestIds)
+		slices.Sort(selectedTestIds)
 	})
 
 	return selectedTestIds
 }
 
+// IsTestCase checks if the provided testId exists in the AllTestCases map and returns true if it exists, otherwise false.
 func IsTestCase(testId string) bool {
 	_, exists := AllTestCases[testId]
 	return exists
 }
 
+// GetAbstract retrieves the abstract description of a test case using its test ID as a key from the AllTestCases map.
+func GetAbstract(testId string) string {
+	return AllTestCases[testId].Abstract
+}
+
 // CmdExec executes command provided in cmdStdin with environment cmdEnv and timeout provided in seconds.
-func CmdExec(cmdStdin io.Reader, cmdExec string, cmdArgs []string, cmdEnv []string, timeout time.Duration) *ExecutionStatus {
+func CmdExec(ctx context.Context, cmdStdin string, cmdExec string, cmdArgs []string, cmdEnv []string, timeout time.Duration) *ExecutionStatus {
 	var (
 		retcode RetCode
 		cmd     *exec.Cmd
@@ -99,18 +102,22 @@ func CmdExec(cmdStdin io.Reader, cmdExec string, cmdArgs []string, cmdEnv []stri
 		err     error
 	)
 
+	//cmdArgs = append(cmdArgs, cmdStdin)
+	//cmdArgs = cmdArgs[:len(cmdArgs)-1]
+
 	if timeout > 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		cmdExecCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		cmd = exec.CommandContext(ctx, cmdExec, cmdArgs...)
+		cmd = exec.CommandContext(cmdExecCtx, cmdExec, cmdArgs...)
 	} else {
-		cmd = exec.Command(cmdExec, cmdArgs...)
+		cmd = exec.CommandContext(ctx, cmdExec, cmdArgs...)
 	}
 
-	cmd.Env = append(os.Environ(), cmdEnv...)
-	cmd.Stdin = cmdStdin
+	cmd.Env = cmdEnv
+	cmd.Stdin = bytes.NewBufferString(cmdStdin)
 	cmd.Stdout = &cmdOut
 	cmd.Stderr = &cmdErr
+	execTime := time.Now().UTC()
 
 	if err = cmd.Run(); err != nil {
 		var exitErr *exec.ExitError
@@ -123,20 +130,19 @@ func CmdExec(cmdStdin io.Reader, cmdExec string, cmdArgs []string, cmdEnv []stri
 		} else {
 			retcode = InternalAppError
 		}
-		return NewExecutionStatus(retcode, err.Error(), cmdOut.String(), cmdErr.String())
+		return NewExecutionStatus(retcode, err.Error(), cmdOut.String(), cmdErr.String(), execTime)
 	}
-
-	return NewExecutionStatus(retcode, "", cmdOut.String(), cmdErr.String())
+	return NewExecutionStatus(retcode, "", cmdOut.String(), cmdErr.String(), execTime)
 }
 
 // ExecTest executes a test case on a container.
-func ExecTest(execTest func(io.Reader, string, []string, []string, time.Duration) *ExecutionStatus, testId string, cache map[string]*ExecutionStatus, cmdExec string, cmdArgs []string, timeout time.Duration) *ExecutionStatus {
+func ExecTest(ctx context.Context, execTest func(context.Context, string, string, []string, []string, time.Duration) *ExecutionStatus, testId string, cache map[string]*ExecutionStatus, cmdExec string, cmdArgs []string, timeout time.Duration) *ExecutionStatus {
 	// check if cached - was already executed for a given pod and container
 	if _, cached := cache[testId]; cached {
 		return cache[testId]
 	}
 
-	log.Logf("Executing: %s\n", testId)
+	zap.L().Debug("Execution", zap.String("test id", testId))
 
 	// execute dependencies
 	var cmdEnv []string
@@ -144,7 +150,7 @@ func ExecTest(execTest func(io.Reader, string, []string, []string, time.Duration
 
 	for _, dep := range AllTestCases[testId].Dependencies {
 		// This is recurrent call. Exec() always returns an instance of k8sexec.ExecutionStatus
-		depExecResult := ExecTest(execTest, dep.Id, cache, cmdExec, cmdArgs, timeout)
+		depExecResult := ExecTest(ctx, execTest, dep.Id, cache, cmdExec, cmdArgs, timeout)
 		if dep.Type == Stdout {
 			// note "%q"
 			//fmt.Printf("%s=%q\n", dep.VarName, strings.Join(depExecResult.Stdout, " "))
@@ -164,7 +170,7 @@ func ExecTest(execTest func(io.Reader, string, []string, []string, time.Duration
 
 	if AllTestCases[testId].TestFunc != nil {
 		cache[testId] = AllTestCases[testId].TestFunc(testId, depExecStatuses)
-		log.Logf("%s/%s: %s CMD:\n%s\n", hostName, userName, testId, "")
+		zap.L().Debug(testId, zap.String("host", hostName), zap.String("user", userName))
 	} else {
 		if len(AllTestCases[testId].Command) == 0 {
 			// this is an error condition since neither TestFunc nor Command have been defined for a test case
@@ -173,18 +179,24 @@ func ExecTest(execTest func(io.Reader, string, []string, []string, time.Duration
 
 		// add command to stdin buffer
 
-		cache[testId] = execTest(bytes.NewBufferString(AllTestCases[testId].Command), cmdExec, cmdArgs, cmdEnv, timeout)
+		cache[testId] = execTest(ctx, AllTestCases[testId].Command, cmdExec, cmdArgs, cmdEnv, timeout)
+		zap.L().Debug(
+			testId,
+			zap.String("host", hostName),
+			zap.String("user", userName),
+			zap.String("command", AllTestCases[testId].Command),
+			zap.String("cmdExec", cmdExec),
+			zap.String("cmdArgs", strings.Join(cmdArgs, " ")),
+			zap.String("cmdEnv", strings.Join(cmdEnv, " ")),
+		)
 	}
 
-	log.Logf("%s/%s: %s RETCODE: %d\n", hostName, userName, testId, cache[testId].RetCode)
-	log.Logf("%s/%s: %s STDOUT:\n%s\n", hostName, userName, testId, strings.Join(cache[testId].Stdout, "\n"))
-	log.Logf("%s/%s: %s STDERR:\n%s\n", hostName, userName, testId, strings.Join(cache[testId].Stderr, "\n"))
-
+	zap.L().Debug("cache", zap.String("test id", testId), zap.Any("cache", cache[testId]))
 	return cache[testId]
 }
 
 // ExecTests function create test environment for a container and executes test cases.
-func ExecTests(tests []string, cmdExec string, cmdArgs []string, timeout time.Duration) map[string]*ExecutionStatus {
+func ExecTests(ctx context.Context, tests []string, cmdExec string, cmdArgs []string, timeout time.Duration) map[string]*ExecutionStatus {
 	var cache map[string]*ExecutionStatus = make(map[string]*ExecutionStatus)
 	var execStatuses map[string]*ExecutionStatus = make(map[string]*ExecutionStatus)
 
@@ -192,48 +204,153 @@ func ExecTests(tests []string, cmdExec string, cmdArgs []string, timeout time.Du
 	testIds := getTestIds(tests)
 
 	for _, testId := range testIds {
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+		}
+
 		if AllTestCases[testId].IsTest {
 			fmt.Fprintf(os.Stderr, "Executing: %s  %q\n", AllTestCases[testId].Id, AllTestCases[testId].Abstract)
-			execStatuses[testId] = ExecTest(CmdExec, testId, cache, cmdExec, cmdArgs, timeout)
+			execStatuses[testId] = ExecTest(ctx, CmdExec, testId, cache, cmdExec, cmdArgs, timeout)
 		}
 	}
 
 	return execStatuses
 }
 
-type AccountTestStatus struct {
-	UserName         string                `json:"UserName"`
-	ExecTestStatuses map[string]TestStatus `json:"ExecTestStatuses"`
+type AccountTestResults struct {
+	UserName         string                 `json:"UserName"`
+	ExecTestStatuses map[string]*TestResult `json:"ExecTestStatuses"`
 }
 
-func NewAccountTestStatus(userName string, execTestStatuses map[string]TestStatus) *AccountTestStatus {
-	return &AccountTestStatus{UserName: userName, ExecTestStatuses: execTestStatuses}
+// NewAccountTestResults creates a new AccountTestResults instance with the provided username and execution test statuses.
+func NewAccountTestResults(userName string, execTestStatuses map[string]*TestResult) *AccountTestResults {
+	return &AccountTestResults{UserName: userName, ExecTestStatuses: execTestStatuses}
 }
 
-type TestStatus struct {
-	Status     bool             `json:"Status"`
+type TestResult struct {
+	Result     bool             `json:"Status"`
 	ExecStatus *ExecutionStatus `json:"Details"`
 }
 
-func RunTests(tests []string, cmdExec string, cmdArgs []string, timeout time.Duration) map[string]TestStatus {
-	testsResults := make(map[string]TestStatus)
-	execStatuses := ExecTests(tests, cmdExec, cmdArgs, timeout)
+// NewTestResult creates a new TestResult instance with the specified test status and execution details.
+func NewTestResult(status bool, execStatus *ExecutionStatus) *TestResult {
+	return &TestResult{Result: status, ExecStatus: execStatus}
+}
+
+// TimedOut checks if the execution status indicates a timeout by comparing the return code to ExecutionTimeOut.
+func (tr *TestResult) TimedOut() bool {
+	return tr.ExecStatus.RetCode == ExecutionTimeOut
+}
+
+// RunTests executes a series of test cases, processes their results, and returns a map of test IDs to TestResult.
+func RunTests(ctx context.Context, tests []string, cmdExec string, cmdArgs []string, timeout time.Duration) map[string]*TestResult {
+	testsResults := make(map[string]*TestResult)
+	execStatuses := ExecTests(ctx, tests, cmdExec, cmdArgs, timeout)
 
 	for testId, status := range execStatuses {
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+		}
+
 		if AllTestCases[testId].IsTest {
 			result := AllTestCases[testId].ResultFunc(status)
-			testsResults[testId] = TestStatus{result, status}
+			testsResults[testId] = NewTestResult(result, status)
 		}
 	}
 
 	return testsResults
 }
 
-func RunAccountTests(tests []string, users []string, timeout time.Duration) []*AccountTestStatus {
-	var userTestsResults []*AccountTestStatus
-	for _, user := range users {
-		fmt.Fprintf(os.Stderr, "Testing account: %s\n", user)
-		userTestsResults = append(userTestsResults, NewAccountTestStatus(user, RunTests(tests, "su", []string{"-c", "sh", "-", user}, timeout)))
+// isParentSudo checks if the parent process is 'sudo' by examining process information in the /proc filesystem on Linux.
+func isParentSudo() bool {
+	ppid := os.Getppid()
+
+	// Method 1: Check /proc/PPID/comm (Linux)
+	if commBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", ppid)); err == nil {
+		comm := strings.TrimSpace(string(commBytes))
+		if comm == "sudo" {
+			return true
+		}
+	}
+
+	// Method 2: Check /proc/PPID/cmdline (Linux)
+	if cmdlineBytes, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", ppid)); err == nil {
+		cmdline := string(cmdlineBytes)
+		// cmdline has null separators, split on first null
+		if parts := strings.Split(cmdline, "\x00"); len(parts) > 0 {
+			if strings.HasSuffix(parts[0], "sudo") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+var RunAccountTests = RunAccountTestsWithSU
+
+// RunAccountTestsWithSU executes tests for multiple user accounts through `su`, ensuring environment parity for each test.
+// It iterates over provided user credentials, prints the currently tested account, and captures the results of each test.
+// Returns a slice of AccountTestResults containing the outcomes of the executed tests per user.
+func RunAccountTestsWithSU(ctx context.Context, tests []string, users map[string]string, timeout time.Duration) []*AccountTestResults {
+	var userTestsResults []*AccountTestResults
+
+	for login, shell := range users {
+		fmt.Fprintf(os.Stderr, "Testing account: %s\n", login)
+		_ = shell
+
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+		}
+		// OPTION 2: su is independent of linux distribution, however, bptvnftester should be run from root shell.
+		// `shell -i -c bash` forces shell to run in the interactive mode, which ensures that the shell environment looks in the similar way when
+		// a threat actor got initial footprint on the system (shell). This behaviour of a shell was confirmed with the shell man pages. Usage of `-i`
+		// is unconditional - does not conflict with `-c`. The shell in the interactive mode sources rc files (.bashrc, .zshrc etc.) that contains
+		// user account customizations e.g. additional env. variables or aliases.
+		// Execution of `bash` as a command/argument of `-c` makes `bash` to inherit the environment created by `shell -i` since `bash` is launched
+		// as a child process.
+		//userTestsResults = append(userTestsResults, NewAccountTestResults(login, RunTests(ctx, tests, "su", []string{"-l", login, "--session-command", fmt.Sprintf("%s -i -c sh", shell)}, timeout)))
+		userTestsResults = append(userTestsResults, NewAccountTestResults(login, RunTests(ctx, tests, "su", []string{"-l", login, "--session-command", shell}, timeout)))
+	}
+	return userTestsResults
+}
+
+// RunAccountTestsWithSUDO executes a set of test cases for user accounts using `sudo` and returns the results.
+func RunAccountTestsWithSUDO(ctx context.Context, tests []string, users map[string]string, timeout time.Duration) []*AccountTestResults {
+	var userTestsResults []*AccountTestResults
+
+	for login, shell := range users {
+		fmt.Fprintf(os.Stderr, "Testing account: %s\n", login)
+		_ = shell
+
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+		}
+
+		// OPTION 1: using sudo to execute commands works as expected, but it depends on availability of sudo
+		// `shell -i -c bash` forces shell to run in the interactive mode, which ensures that the shell environment looks in the similar way when
+		// a threat actor got initial footprint on the system (shell). This behaviour of a shell was confirmed with the shell man pages. Usage of `-i`
+		// is unconditional - does not conflict with `-c`. The shell in the interactive mode sources rc files (.bashrc, .zshrc etc.) that contains
+		// user account customizations e.g. additional env. variables or aliases.
+		// Execution of `bash` as a command/argument of `-c` makes `bash` to inherit the environment created by `shell -i` since `bash` is launched
+		// as a child process.
+		userTestsResults = append(userTestsResults, NewAccountTestResults(login, RunTests(ctx, tests, "sudo", []string{"-iu", login, shell, "-i", "-c", "bash"}, timeout)))
 	}
 	return userTestsResults
 }

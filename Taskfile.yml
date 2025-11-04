@@ -1,0 +1,72 @@
+version: '3'
+
+vars:
+  BINARY_NAME: bptvnftester
+  BUILD_DIR: ./build
+  VERSION_TAG: '{{.VERSION_TAG | default "dev"}}'
+  BUILD_TIME: '{{now | date "2006-01-02T15:04:05Z07:00"}}'
+  GIT_COMMIT:
+    sh: git rev-parse --short HEAD
+  GIT_BRANCH:
+    sh: git rev-parse --abbrev-ref HEAD
+  LDFLAGS: "-w -s -X main.AppName={{.BINARY_NAME}} -X main.AppVersion={{.VERSION_TAG}} -X main.BuildTime={{.BUILD_TIME}} -X main.GitCommit={{.GIT_COMMIT}} -X main.GitBranch={{.GIT_BRANCH}}"
+
+tasks:
+  build:
+    desc: Build the application for Linux AMD64
+    summary: |
+      Build the Go application for Linux AMD64 architecture.
+      Usage: task build [VERSION_TAG=v1.0.0] (defaults to "dev")
+      Includes version, build time, git commit, and branch info.
+    platforms: [windows, linux, darwin]
+    cmds:
+      - task: ensure-build-dir
+      - task: go-build-linux
+
+  go-build-linux:
+    internal: true
+    platforms: [windows, linux, darwin]
+    silent: true
+    vars:
+      GOOS: linux
+      GOARCH: amd64
+    env:
+      GOOS: '{{.GOOS}}'
+      GOARCH: '{{.GOARCH}}'
+    cmds:
+      - echo "Building {{.BINARY_NAME}} for {{.GOOS}}/{{.GOARCH}}"
+      - cmd: go build -ldflags="{{.LDFLAGS}}" -o "{{.BUILD_DIR}}/{{.BINARY_NAME}}-{{.GOOS}}-{{.GOARCH}}"
+      - 'echo "Built {{.BINARY_NAME}}-linux-amd64 ({{.VERSION_TAG}}, {{.GIT_COMMIT}}, {{.BUILD_TIME}})"'
+
+  ensure-build-dir:
+    internal: true
+    platforms: [windows, linux, darwin]
+    silent: true
+    cmds:
+      - cmd: powershell -Command "New-Item -ItemType Directory -Force -Path '{{.BUILD_DIR}}' | Out-Null"
+        platforms: [windows]
+      - cmd: mkdir -p {{.BUILD_DIR}}
+        platforms: [linux, darwin]
+
+  info:
+    desc: Show build information
+    silent: true
+    cmds:
+      - 'echo "Version: {{.VERSION_TAG}}"'
+      - 'echo "Build Time: {{.BUILD_TIME}}"'
+      - 'echo "Git Commit: {{.GIT_COMMIT}}"'
+      - 'echo "Git Branch: {{.GIT_BRANCH}}"'
+      - 'echo "LDFLAGS: {{.LDFLAGS}}"'
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - cmd: rm -rf {{.BUILD_DIR}}
+        platforms: [linux, darwin]
+      - cmd: powershell -Command "Remove-Item -Recurse -Force -Path '{{.BUILD_DIR}}' | Out-Null"
+        platforms: [windows]
+
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list

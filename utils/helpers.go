@@ -1,9 +1,10 @@
-//go:build linux
-
 package utils
 
 import (
 	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
 )
 
 func IsFileListed(file string, list []string) bool {
@@ -16,6 +17,27 @@ func IsFileListed(file string, list []string) bool {
 	}
 
 	return found
+}
+
+//var isWithinValidCharset = newWhitelist("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ${}-_/.")
+
+var isWithinValidCharset = regexp.MustCompile("[^a-zA-Z0-9${}_/.-]")
+var separator = []rune{' ', '\t', '\n', '\r', '=', ';', ':'}
+
+// FindFilePaths extracts absolute file paths from a given string, splitting it using specific separators and filtering invalid paths.
+func FindFilePaths(value string) []string {
+	var filePaths []string
+	value = strings.TrimSpace(value)
+	tokens := strings.FieldsFunc(value, func(r rune) bool {
+		return slices.Contains(separator, r)
+	})
+
+	for _, token := range tokens {
+		if filepath.IsAbs(token) && !isWithinValidCharset.MatchString(token) {
+			filePaths = append(filePaths, token)
+		}
+	}
+	return filePaths
 }
 
 //func IsWritable(path string) bool {

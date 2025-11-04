@@ -1,35 +1,85 @@
 package testengine
 
 import (
+	"bptvnftester/log"
 	"bufio"
-	"linuxtester/log"
+	"bytes"
+	"errors"
+	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
 
 func contains(str string, patterns ...string) bool {
 	for _, p := range patterns {
-		if strings.Contains(str, p) {
+		if strings.HasSuffix(str, p) {
 			return true
 		}
 	}
 	return false
 }
 
-func GetUsers() []string {
-	var users []string
-	var uid int
+const DEFAULT_MIN_USER_UID = 1000
 
-	// Open the /etc/passwd file
-	file, err := os.Open("/etc/passwd")
+// getMinUID parses the /etc/login.defs file to find the minimum user ID.
+func getMinUID() int {
+	file, err := os.Open("/etc/login.defs")
 	if err != nil {
-		log.Fatal("Error opening /etc/passwd:", err)
+		return DEFAULT_MIN_USER_UID
 	}
 	defer file.Close()
 
-	// Create a scanner to read the file
 	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "#") || line == "" {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[0] == "UID_MIN" {
+			minUID, err := strconv.Atoi(fields[1])
+			if err != nil {
+				return DEFAULT_MIN_USER_UID
+			}
+			return minUID
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return DEFAULT_MIN_USER_UID
+	}
+
+	return DEFAULT_MIN_USER_UID
+}
+
+func getent() (io.Reader, error) {
+	var passwd bytes.Buffer
+
+	cmd := exec.Command("getent", "passwd")
+	cmd.Stdout = &passwd
+	if err := cmd.Run(); err == nil {
+		return &passwd, nil
+	}
+
+	if data, err := os.ReadFile("/etc/passwd"); err == nil {
+		return bytes.NewBuffer(data), nil
+	}
+	return nil, errors.New("failed to retrieve user list")
+}
+
+func GetUsers() map[string]string {
+	var users map[string]string = make(map[string]string)
+
+	passwd, err := getent()
+	if err != nil {
+		return users
+	}
+
+	// Create a scanner to read the file
+	scanner := bufio.NewScanner(passwd)
 
 	// Iterate through each line
 	for scanner.Scan() {
@@ -40,14 +90,15 @@ func GetUsers() []string {
 			continue
 		}
 
-		uid, err = strconv.Atoi(fields[2])
-		if err != nil {
-			log.Logln("Error converting uid to int:", err)
-			continue
-		}
-		if uid >= 1000 && contains(fields[6], "/bash", "/ksh", "/zsh", "/csh", "/fish", "/tcsh", "/dash", "/elvish", "/ion", "/xonsh", "/nushell", "/sh", "/wsh") {
+		user := fields[0]
+		shell := fields[6]
+
+		if contains(shell, "/bash", "/ksh", "/zsh", "/csh", "/fish", "/tcsh", "/dash", "/elvish", "/ion", "/xonsh", "/nushell", "/sh", "/wsh") {
 			// The first field is the username
-			users = append(users, fields[0])
+			if fields[0] == "root" || fields[2] == "0" {
+				continue
+			}
+			users[user] = shell
 		}
 	}
 

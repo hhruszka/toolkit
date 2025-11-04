@@ -1,14 +1,16 @@
 package testengine
 
 import (
+	"bptvnftester/utils"
 	"fmt"
-	"linuxtester/utils"
 	"strings"
+	"time"
 )
 
 // vnfbpt06 tests for: known exploitable binaries with setuid cannot be present on the system.
 func vnfbpt06(testId string, depExecResults map[string]map[string]*ExecutionStatus) *ExecutionStatus {
 	retCode := Success
+	execTime := time.Now().UTC()
 
 	depID := AllTestCases[testId].Dependencies[0].Id
 	varName := AllTestCases[testId].Dependencies[0].VarName
@@ -36,5 +38,5 @@ func vnfbpt06(testId string, depExecResults map[string]map[string]*ExecutionStat
 		stderr = strings.Join(execStatus.Stderr, "\n")
 	}
 
-	return NewExecutionStatus(retCode, execError, stdout, stderr)
+	return NewExecutionStatus(retCode, execError, stdout, stderr, execTime)
 }

@@ -144,7 +144,10 @@ var TestCases = []*TestCase{
 	{"ENUM03", false, "Binaries with setuid bit owned by root", nil, []string{sh, find}, false, `find_opts='-path /proc -prune -o -path /sys -prune -o -path /dev -prune -o';find / $find_opts -perm -4000 -type f -user 0 -print`, nil, nil},
 	{"ENUM04", false, "Binaries with setgid bit owned by root", nil, []string{sh, find}, false, `find_opts='-path /proc -prune -o -path /sys -prune -o -path /dev -prune -o';find / $find_opts -perm -2000 -type f -user 0 -print`, nil, nil},
 	{"ENUM05", false, "Processes", nil, nil, false, ``, enum05, nil},
+	// # Get the user's default shell and run interactively
+	//sudo -u username $(getent passwd username | cut -d: -f7) -i -c 'env'
 	{"ENUM06", false, "Environment variables", nil, []string{env}, false, `env`, nil, nil},
+	{"ENUM07", false, "sudo output", nil, []string{sudo}, false, `sudo -nl`, nil, nil},
 	//{"VNFBPT00", true, "It is forbidden to run a container as root", nil, nil, false, "", cnpt00, PassedWhenRetCodeFailed},
 	{"VNFBPT01", true, "PATH variable defined inside /etc cannot contain '.'", []*Dependency{{Id: "ENUM01", Type: Stdout, VarName: "etc_exec_paths"}}, []string{sh, grep, tr}, false, `for ep in $etc_exec_paths; do [ "$ep" = "." ] && grep -ER "^ *PATH=.*" /etc/ 2> /dev/null | tr -d $(printf '\x22\x27') | grep -E "[=:]\./*([:[:space:]]|\$)";done`, nil, PassedWhenStdoutEmpty},
 	{"VNFBPT02", true, "User is forbidden to sudo without a password", nil, []string{sh, sudo}, true, `sudo -n true`, nil, PassedWhenRetCodeFailed},
@@ -210,8 +213,12 @@ var TestCases = []*TestCase{
 	{"VNFBPT56", true, "A non-root user must not have access permissions to keepass database files of other users", nil, []string{sh, find}, true, find_opts + `find / $find_opts -regextype egrep -iregex ".*\.kdbx?" ! -user $(id -u) -readable -type f -print`, nil, PassedWhenStdoutEmpty},
 	{"VNFBPT57", true, "A non-root user must not have access permissions to .password-store directories of other users", nil, []string{sh, find}, true, find_opts + `find / $find_opts -name ".password-store" -type d ! -user $(id -u) -readable -exec ls -ld {} +`, nil, PassedWhenStdoutEmpty},
 	{"VNFBPT58", true, "A non-root user must not have access permissions to any Kerberos credentials files of other users", nil, []string{sh, find}, true, find_opts + `find / $find_opts -name "*.so" -prune -o \( -name "krb5cc*" -o -name "*.ccache" -o -name "*.kirbi" -o -name "*.keytab" \) -type f ! -user $(id -u) -readable -exec ls -lh {} +`, nil, PassedWhenStdoutEmpty},
-	{"VNFBPT66", true, "Environment variable cannot contain secrets", []*Dependency{{Id: "ENUM06", Type: TestFunc, VarName: "env_variables"}}, []string{env}, false, ``, vnfbpt59, PassedWhenRetCodeSuccessful},
+	{"VNFBPT66", true, "Environment variable cannot contain secrets", []*Dependency{{Id: "ENUM06", Type: TestFunc, VarName: "env_variables"}}, []string{env}, false, ``, vnfbpt66, PassedWhenRetCodeSuccessful},
 }
+
+//var TestCasesDev = []*TestCase{
+//	{"VNFBPT67", true, "User must not run known vulnerable sudo executables", []*Dependency{{Id: "ENUM07", Type: TestFunc, VarName: "sudo_output"}}, []string{sudo}, false, ``, vnfbpt67, PassedWhenRetCodeSuccessful},
+//}
 
 // TODO: consider using this variables directly in a command by concatenating them into the command instead of a shell variable,
 //

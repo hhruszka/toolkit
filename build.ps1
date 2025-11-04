@@ -10,5 +10,5 @@ if (-not $versionTag) {
 # Build for Linux
 $env:GOOS="linux"
 $env:GOARCH="amd64"
-go build -ldflags="-w -s -X main.AppVersion=$versionTag" -o "./build/bptvnftester-linux-amd64"
+go build -a -ldflags="-w -s -X main.AppVersion=$versionTag" -o "./build/bptvnftester-linux-amd64"
 
