@@ -16,7 +16,7 @@ func GenReport(results []*testengine.AccountTestResults, hostName string, format
 			return fmt.Errorf("internal application error: %s\n", err.Error())
 		}
 	case "xlsx", "xls":
-		if err := SaveToXLSXFile(report); err != nil {
+		if err := SaveToXLSXFile(report, saveTestReportsXLSXStream); err != nil {
 			return fmt.Errorf("internal application error: %s\n", err.Error())
 		}
 	case "text", "txt":

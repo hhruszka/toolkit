@@ -3,12 +3,74 @@ package reports
 import (
 	"bptvnftester/testengine"
 	"bytes"
+	"errors"
 	"fmt"
+	"strings"
+	"sync"
+	"unicode/utf8"
+
 	"github.com/fatih/color"
 	"github.com/xuri/excelize/v2"
-	"strings"
-	"unicode/utf8"
 )
+
+var setStyleOnce sync.Once
+var styleWrappedId int
+var styleNotWrappedId int
+
+func SetDefaultStyles(xlsxFile *excelize.File) {
+	setStyleOnce.Do(func() {
+		font := excelize.Font{
+			Size:   11,
+			Family: "Calibri",
+		}
+		styleWrapped := &excelize.Style{
+			Border:        nil,
+			Fill:          excelize.Fill{},
+			Font:          &font,
+			Alignment:     &excelize.Alignment{Horizontal: "left", Vertical: "top", WrapText: true},
+			Protection:    nil,
+			NumFmt:        0,
+			DecimalPlaces: nil,
+			CustomNumFmt:  nil,
+			NegRed:        false,
+		}
+
+		styleNotWrapped := &excelize.Style{
+			Border:        nil,
+			Fill:          excelize.Fill{},
+			Font:          &font,
+			Alignment:     &excelize.Alignment{Horizontal: "left", Vertical: "top", WrapText: false},
+			Protection:    nil,
+			NumFmt:        0,
+			DecimalPlaces: nil,
+			CustomNumFmt:  nil,
+			NegRed:        false,
+		}
+
+		styleNotWrappedId, _ = xlsxFile.NewStyle(styleNotWrapped)
+		styleWrappedId, _ = xlsxFile.NewStyle(styleWrapped)
+	})
+}
+
+// setSheetName sets the name of the first or a new sheet in the Excel file, truncating the name if it exceeds 31 characters.
+// It returns the updated sheet name or an error if the operation fails.
+func setSheetName(xlsxFile *excelize.File, sheetName string) (string, error) {
+	var err error
+
+	if len(sheetName) > 31 {
+		sheetName = sheetName[:excelize.MaxSheetNameLength]
+	}
+	if xlsxFile.SheetCount == 1 && xlsxFile.GetSheetName(0) == "Sheet1" {
+		err = xlsxFile.SetSheetName(xlsxFile.GetSheetName(0), sheetName)
+		if err != nil {
+			// this is the first and the only tab. We cannot change its name to 31 char name
+			return "", err
+		}
+	} else if _, err = xlsxFile.NewSheet(sheetName); err != nil {
+		return "", err
+	}
+	return sheetName, nil
+}
 
 // _col converts a column number to its corresponding Excel column letter. It panics if an error occurs during conversion.
 func _col(col int) string {
@@ -37,6 +99,27 @@ func cellLen(cellValue string) float64 {
 		width = max(width, float64(utf8.RuneCountInString(line)+2))
 	}
 	return width
+}
+
+// setColWidthWithStreamWriter sets the widths of specified columns using the provided StreamWriter.
+// sw is the Excel StreamWriter used for writing operations.
+// colWidths is a slice of integers representing the widths to be applied to corresponding columns.
+// Returns an error if the operation fails or if no column widths are specified.
+func setColWidthWithStreamWriter(sw *excelize.StreamWriter, col int, colWidths []int) error {
+	if len(colWidths) == 0 {
+		return errors.New("no column widths specified")
+	}
+	for i, width := range colWidths {
+		if width > 0 {
+			if width > excelize.MaxColumnWidth {
+				width = excelize.MaxColumnWidth
+			}
+			if err := sw.SetColWidth(col+i, col+i, float64(width)*0.9+2); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // getFontSize retrieves the font size of a specified cell in a given Excel sheet.
