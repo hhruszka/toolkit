@@ -11,8 +11,17 @@ vars:
   GIT_BRANCH:
     sh: git rev-parse --abbrev-ref HEAD
   LDFLAGS: "-linkmode external -extldflags \"-static\" -w -s -X main.AppName={{.BINARY_NAME}} -X main.AppVersion={{.VERSION}} -X main.BuildTime={{.BUILD_TIME}} -X main.GitCommit={{.GIT_COMMIT}} -X main.GitBranch={{.GIT_BRANCH}}"
+  GOFLAGS: '{{.GOFLAGS | default ""}}'
 
 tasks:
+  build-all:
+    desc: Rebuild all packages
+    cmds:
+      - task: build
+        vars:
+          GOFLAGS: '-a'
+          BUILDALL: 'all'
+
   build:
     desc: Build the application for Linux AMD64
     summary: |
@@ -23,6 +32,9 @@ tasks:
     cmds:
       - task: ensure-build-dir
       - task: go-build-linux
+        vars:
+          GOFLAGS: '{{.GOFLAGS}}'
+          BUILDALL: '{{.BUILDALL | default ""}}'
 
   go-build-linux:
     internal: true
@@ -35,8 +47,8 @@ tasks:
       GOOS: '{{.GOOS}}'
       GOARCH: '{{.GOARCH}}'
     cmds:
-      - echo "Building {{.BINARY_NAME}} for {{.GOOS}}/{{.GOARCH}}"
-      - cmd: go build -ldflags="{{.LDFLAGS}}" -o "{{.BUILD_DIR}}/{{.BINARY_NAME}}-{{.GOOS}}-{{.GOARCH}}"
+      - echo "Building {{.BUILDALL}} {{.BINARY_NAME}} for {{.GOOS}}/{{.GOARCH}}"
+      - cmd: go build {{.GOFLAGS}} -tags "netgo osusergo" -ldflags="{{.LDFLAGS}}" -o "{{.BUILD_DIR}}/{{.BINARY_NAME}}-{{.GOOS}}-{{.GOARCH}}"
       - cmd: upx --best --lzma "{{.BUILD_DIR}}/{{.BINARY_NAME}}-{{.GOOS}}-{{.GOARCH}}"
         silent: true
       - 'echo "Built {{.BINARY_NAME}}-linux-amd64 ({{.VERSION}}, {{.GIT_COMMIT}}, {{.BUILD_TIME}})"'
