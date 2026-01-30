@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/hhruszka/secretscanner v1.12.0
+	github.com/hhruszka/secretscanner v1.13.0
 	github.com/jedib0t/go-pretty/v6 v6.6.8
 	github.com/spf13/cobra v1.10.1
 	github.com/xuri/excelize/v2 v2.10.0
