@@ -70,7 +70,9 @@ func getent() (io.Reader, error) {
 	return nil, errors.New("failed to retrieve user list")
 }
 
-func GetUsers() map[string]string {
+var GetUsers = getUsers
+
+func getUsers() map[string]string {
 	var users map[string]string = make(map[string]string)
 
 	passwd, err := getent()

@@ -4,11 +4,12 @@ import (
 	"bptvnftester/log"
 	"context"
 	"fmt"
-	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 	"os"
 	"os/user"
 	"strconv"
+
+	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 // App global variables
@@ -100,8 +101,6 @@ func NewRootCmd(ctx context.Context, appName, appVersion, buildTime, gitCommit s
 			return nil
 		},
 	}
-
-	//cmd.Flags().BoolVar(&debug, "debug", false, "debug flag")
 
 	// Disable automatic printing of usage when an error occurs
 	cmd.SilenceUsage = true

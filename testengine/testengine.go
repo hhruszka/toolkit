@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"maps"
 	"os"
 	"os/exec"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 var AllTestCases map[string]*TestCase
@@ -63,7 +64,7 @@ func getTestCases(tests []string) map[string]*TestCase {
 
 // getTestIds returns a sorted list of test IDs based on the input slice or all available test case IDs if input is nil.
 func getTestIds(tests []string) []string {
-	if tests == nil {
+	if tests == nil || len(tests) == 0 {
 		testIds := slices.Collect(maps.Keys(AllTestCases))
 		slices.Sort(testIds)
 		return testIds

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func generateCSVReport(hostTestReport *HostTestReport) error {
+func SaveToCSVFile(hostTestReport *HostTestReport, filePath string) error {
 	var report bytes.Buffer
 
 	_, _ = fmt.Fprintf(&report, "Host,User,Test Id,Abstract, Result,Execution Code, Stdout, Stderr\n")
@@ -30,12 +30,15 @@ func generateCSVReport(hostTestReport *HostTestReport) error {
 		}
 	}
 
-	return saveToCSVFile(hostTestReport.HostName, report.Bytes())
+	return saveToCSVFile(hostTestReport.HostName, filePath, report.Bytes())
 }
 
-func saveToCSVFile(hostName string, report []byte) error {
-	filePath := filepath.Join(REPORT_NAME + "-" + hostName + "-" + time.Now().Format("2006-01-02_15-04-05_MST") + ".csv")
-	if err := os.WriteFile(filePath, report, 0444); err != nil {
+func saveToCSVFile(hostName string, filePath string, report []byte) error {
+	if filePath == "" {
+		filePath = filepath.Join(REPORT_NAME + "-" + hostName + "-" + time.Now().Format("2006-01-02_15-04-05_MST") + ".csv")
+	}
+	filePath = filepath.Clean(filePath)
+	if err := os.WriteFile(filePath, report, 0644); err != nil {
 		return fmt.Errorf("failed to save to file due to: %w", err)
 	}
 	_, _ = fmt.Fprintln(os.Stderr, "Report saved successfully:", filePath)

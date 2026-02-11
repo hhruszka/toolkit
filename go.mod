@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/hhruszka/secretscanner v1.13.0
+	github.com/hhruszka/secretscanner v1.14.0
 	github.com/jedib0t/go-pretty/v6 v6.6.8
 	github.com/spf13/cobra v1.10.1
 	github.com/xuri/excelize/v2 v2.10.0
@@ -17,7 +17,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-enry/go-enry/v2 v2.9.3 // indirect
 	github.com/go-enry/go-oniguruma v1.2.1 // indirect
-	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -38,8 +38,8 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 // indirect
+	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
 )

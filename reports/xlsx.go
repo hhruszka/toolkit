@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -144,7 +145,7 @@ func noResults(xlsxFile *excelize.File, sheetName string, row int, col int) {
 // SaveToXLSXFile generates and saves an Excel report for the given namespace test report to a timestamped XLSX file.
 // It includes per-container and aggregated namespace data, creating sheets for each container in the namespace.
 // Returns an error if the report generation or file saving fails.
-func SaveToXLSXFile(report *HostTestReport, reportToXLSX func(*HostTestReport, *excelize.File) error) error {
+func SaveToXLSXFile(report *HostTestReport, filePath string, reportToXLSX func(*HostTestReport, *excelize.File) error) error {
 	// Create a new Excel file
 	xlsxFile := excelize.NewFile()
 
@@ -154,7 +155,20 @@ func SaveToXLSXFile(report *HostTestReport, reportToXLSX func(*HostTestReport, *
 	}
 
 	// Save the file
-	filePath := REPORT_NAME + "-" + report.HostName + "-" + time.Now().Format("2006-01-02_15-04-05_MST") + ".xlsx"
+	if filePath == "" {
+		filePath = REPORT_NAME + "-" + report.HostName + "-" + time.Now().Format("2006-01-02_15-04-05_MST") + ".xlsx"
+	}
+
+	filePath = filepath.Clean(filePath)
+	fileName, ext, found := strings.Cut(filepath.Base(filePath), ".")
+	if !found {
+		filePath = filePath + ".xlsx"
+	}
+
+	if found && ext != "xlsx" {
+		filePath = filepath.Join(filepath.Dir(filePath), fileName) + ".xlsx"
+	}
+
 	if err := xlsxFile.SaveAs(filePath); err != nil {
 		return fmt.Errorf("failed to generate xlsx file due to: %w", err)
 	}

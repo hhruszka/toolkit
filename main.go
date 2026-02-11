@@ -20,9 +20,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer stop()
 
+	fmt.Println("Starting", AppName, AppVersion, "(build time: "+BuildTime+", git commit: "+GitCommit+")\n")
+
 	rootCmd := cmd.NewRootCmd(ctx, AppName, AppVersion, BuildTime, GitCommit)
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Print(err.Error())
+	if invokedCmd, err := rootCmd.ExecuteC(); err != nil {
+		fmt.Printf("ERROR: %s\n\n", err)
+		fmt.Printf("Use \"%s --help\" for more information.\n\n", AppName+" "+invokedCmd.Name())
 		os.Exit(1)
 	}
 }

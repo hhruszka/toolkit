@@ -4,14 +4,15 @@ import (
 	"bptvnftester/testengine"
 	"bytes"
 	"fmt"
-	"github.com/jedib0t/go-pretty/v6/table"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
+
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
-func generateTextReport(hostTestReport *HostTestReport) error {
+func SaveReportToTextFile(hostTestReport *HostTestReport, filePath string) error {
 	var report bytes.Buffer
 
 	for _, testsResults := range hostTestReport.Tests {
@@ -36,10 +37,10 @@ func generateTextReport(hostTestReport *HostTestReport) error {
 		t.Render()
 	}
 	//fmt.Println(report.String())
-	return saveTextReportToFile(hostTestReport.HostName, report.Bytes())
+	return saveTextReportToFile(hostTestReport.HostName, filePath, report.Bytes())
 }
 
-func generateDetailedTextReport(hostTestReport *HostTestReport) error {
+func SaveDetailedReportToTextFile(hostTestReport *HostTestReport, filePath string) error {
 	var report bytes.Buffer
 	for _, testsResults := range hostTestReport.Tests {
 		var buf bytes.Buffer
@@ -76,12 +77,16 @@ func generateDetailedTextReport(hostTestReport *HostTestReport) error {
 		fmt.Fprintf(&report, buf.String())
 	}
 
-	return saveTextReportToFile(hostTestReport.HostName, report.Bytes())
+	return saveTextReportToFile(hostTestReport.HostName, filePath, report.Bytes())
 }
 
-func saveTextReportToFile(hostName string, report []byte) error {
-	filePath := filepath.Join(REPORT_NAME + "-" + hostName + "-" + time.Now().Format("2006-01-02_15-04-05_MST") + ".txt")
-	if err := os.WriteFile(filePath, report, 0444); err != nil {
+func saveTextReportToFile(hostName string, filePath string, report []byte) error {
+	if filePath == "" {
+		filePath = filepath.Join(REPORT_NAME + "-" + hostName + "-" + time.Now().Format("2006-01-02_15-04-05_MST") + ".txt")
+	}
+
+	filePath = filepath.Clean(filePath)
+	if err := os.WriteFile(filePath, report, 0644); err != nil {
 		return fmt.Errorf("failed to save to file due to: %w", err)
 	}
 	_, _ = fmt.Fprintln(os.Stderr, "Report saved successfully:", filePath)
