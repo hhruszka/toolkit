@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -258,4 +259,28 @@ func wrap(text []string, n int) string {
 		buffer.WriteRune('\n')
 	}
 	return buffer.String()
+}
+
+// sanitizeFilePath ensures a file path has the correct extension and is cleaned; defaults apply if the path is empty or invalid.
+func sanitizeFilePath(filePath, defaultFilePath, defaultExtension string) string {
+	if filePath == "" || defaultExtension == "" {
+		filePath = defaultFilePath
+	}
+
+	if defaultExtension[0] != '.' {
+		defaultExtension = "." + defaultExtension
+	}
+
+	fileExt := filepath.Ext(filePath)
+
+	if fileExt == "" {
+		filePath = filePath + defaultExtension
+		fileExt = filepath.Ext(filePath)
+	}
+
+	if fileExt != defaultExtension {
+		filePath = strings.TrimSuffix(filePath, fileExt) + defaultExtension
+	}
+
+	return filepath.Clean(filePath)
 }

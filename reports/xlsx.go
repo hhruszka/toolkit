@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -154,20 +153,7 @@ func SaveToXLSXFile(report *HostTestReport, filePath string, reportToXLSX func(*
 		return err
 	}
 
-	// Save the file
-	if filePath == "" {
-		filePath = REPORT_NAME + "-" + report.HostName + "-" + time.Now().Format("2006-01-02_15-04-05_MST") + ".xlsx"
-	}
-
-	filePath = filepath.Clean(filePath)
-	fileName, ext, found := strings.Cut(filepath.Base(filePath), ".")
-	if !found {
-		filePath = filePath + ".xlsx"
-	}
-
-	if found && ext != "xlsx" {
-		filePath = filepath.Join(filepath.Dir(filePath), fileName) + ".xlsx"
-	}
+	filePath = sanitizeFilePath(filePath, REPORT_NAME+"-"+report.HostName+"-"+time.Now().Format("2006-01-02_15-04-05_MST")+".xlsx", ".xlsx")
 
 	if err := xlsxFile.SaveAs(filePath); err != nil {
 		return fmt.Errorf("failed to generate xlsx file due to: %w", err)
