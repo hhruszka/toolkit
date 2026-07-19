@@ -10,7 +10,8 @@ import (
 type RetCode int
 
 const (
-	ExecutionTimeOut RetCode = iota - 2
+	ExecutionCanceled RetCode = iota - 3
+	ExecutionTimeOut
 	InternalAppError
 	Success
 	GeneralError

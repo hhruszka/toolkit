@@ -14,5 +14,6 @@ type CliOptions struct {
 	Version    bool
 	Failedonly bool
 	Detailed   bool
+	Users      string
 	Tests      []string
 }

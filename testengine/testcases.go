@@ -143,7 +143,7 @@ var TestCases = []*TestCase{
 	{"ENUM02", false, "Writable files outside user's home (non-root users)", nil, []string{sh, find}, true, find_opts + `find / -path "$HOME" -prune -o $find_opts -not -type l -writable -print;[ "$(id -u)" != "0" ] && find  / -path "$HOME" -prune -o $find_opts -type l -uid $(id -u) -print`, nil, nil},
 	{"ENUM03", false, "Binaries with setuid bit owned by root", nil, []string{sh, find}, false, `find_opts='-path /proc -prune -o -path /sys -prune -o -path /dev -prune -o';find / $find_opts -perm -4000 -type f -user 0 -print`, nil, nil},
 	{"ENUM04", false, "Binaries with setgid bit owned by root", nil, []string{sh, find}, false, `find_opts='-path /proc -prune -o -path /sys -prune -o -path /dev -prune -o';find / $find_opts -perm -2000 -type f -user 0 -print`, nil, nil},
-	{"ENUM05", false, "Processes", nil, nil, false, ``, enum05, nil},
+	{"ENUM05", false, "Processes", nil, nil, false, `q`, enum05, nil},
 	// # Get the user's default shell and run interactively
 	//sudo -u username $(getent passwd username | cut -d: -f7) -i -c 'env'
 	{"ENUM06", false, "Environment variables", nil, []string{env}, false, `env`, nil, nil},

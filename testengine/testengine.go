@@ -3,9 +3,11 @@ package testengine
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"maps"
+	"math/rand"
 	"os"
 	"os/exec"
 	"os/user"
@@ -35,7 +37,7 @@ func init() {
 	userName = strconv.Itoa(os.Getuid())
 	userInfo, err := user.Current()
 	if err == nil {
-		userName = userInfo.Name
+		userName = userInfo.Username
 	}
 
 	hostName, _ = os.Hostname()
@@ -93,6 +95,24 @@ func GetAbstract(testId string) string {
 	return AllTestCases[testId].Abstract
 }
 
+func randHex(n int) string {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		panic(err) // crypto/rand failing is catastrophic; handle as you see fit
+	}
+	return hex.EncodeToString(b)
+}
+
+func trimMarker(out, marker string) string {
+	lines := strings.Split(out, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.TrimSpace(lines[i]) == marker {
+			return strings.Join(lines[i+1:], "\n")
+		}
+	}
+	return out // marker not found: return raw so we don't silently drop data
+}
+
 // CmdExec executes command provided in cmdStdin with environment cmdEnv and timeout provided in seconds.
 func CmdExec(ctx context.Context, cmdStdin string, cmdExec string, cmdArgs []string, cmdEnv []string, timeout time.Duration) *ExecutionStatus {
 	var (
@@ -103,37 +123,50 @@ func CmdExec(ctx context.Context, cmdStdin string, cmdExec string, cmdArgs []str
 		err     error
 	)
 
-	//cmdArgs = append(cmdArgs, cmdStdin)
-	//cmdArgs = cmdArgs[:len(cmdArgs)-1]
-
+	cmdExecCtx := ctx
 	if timeout > 0 {
-		cmdExecCtx, cancel := context.WithTimeout(ctx, timeout)
+		var cancel context.CancelFunc
+		cmdExecCtx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
-		cmd = exec.CommandContext(cmdExecCtx, cmdExec, cmdArgs...)
-	} else {
-		cmd = exec.CommandContext(ctx, cmdExec, cmdArgs...)
 	}
 
+	//zap.L().Debug("Executing command", zap.String("stdCmdin", cmdStdin), zap.String("cmdExec", cmdExec), zap.Strings("cmdArgs", cmdArgs))
+
+	marker := "---sentinel-" + randHex(16) + "---"
+	wrappedCmd := fmt.Sprintf("echo %s;%s", marker, cmdStdin)
+	cmdArgs = append(cmdArgs, wrappedCmd)
+
+	zap.L().Debug("Executing command", zap.String("cmdExec", cmdExec), zap.Strings("cmdArgs", cmdArgs))
+
+	cmd = exec.CommandContext(cmdExecCtx, cmdExec, cmdArgs...)
 	cmd.Env = cmdEnv
-	cmd.Stdin = bytes.NewBufferString(cmdStdin)
+	cmd.Stdin = bytes.NewReader(nil)
 	cmd.Stdout = &cmdOut
 	cmd.Stderr = &cmdErr
 	execTime := time.Now().UTC()
 
-	if err = cmd.Run(); err != nil {
-		var exitErr *exec.ExitError
-		if ok := errors.As(err, &exitErr); ok {
-			// The program has exited with an exit code != 0
-			// Attempt to extract the exit code if possible
-			retcode = RetCode(exitErr.ExitCode())
-		} else if errors.Is(err, context.DeadlineExceeded) {
-			retcode = ExecutionTimeOut
-		} else {
-			retcode = InternalAppError
-		}
-		return NewExecutionStatus(retcode, err.Error(), cmdOut.String(), cmdErr.String(), execTime)
+	err = cmd.Run()
+	cmdOutStr := trimMarker(cmdOut.String(), marker)
+	retcode = Success
+	errMsg := ""
+
+	var exitErr *exec.ExitError
+	switch {
+	case errors.Is(cmdExecCtx.Err(), context.DeadlineExceeded):
+		retcode = ExecutionTimeOut
+		errMsg = cmdExecCtx.Err().Error()
+	case errors.Is(cmdExecCtx.Err(), context.Canceled):
+		retcode = ExecutionCanceled
+		errMsg = cmdExecCtx.Err().Error()
+	case err != nil && errors.As(err, &exitErr):
+		retcode = RetCode(exitErr.ExitCode())
+		errMsg = err.Error()
+	case err != nil:
+		retcode = InternalAppError
+		errMsg = err.Error()
 	}
-	return NewExecutionStatus(retcode, "", cmdOut.String(), cmdErr.String(), execTime)
+
+	return NewExecutionStatus(retcode, errMsg, cmdOutStr, cmdErr.String(), execTime)
 }
 
 // ExecTest executes a test case on a container.
@@ -247,6 +280,11 @@ func (tr *TestResult) TimedOut() bool {
 	return tr.ExecStatus.RetCode == ExecutionTimeOut
 }
 
+// Canceled checks if the execution status indicates a cancel by comparing the return code to ExecutionCanceled.
+func (tr *TestResult) Canceled() bool {
+	return tr.ExecStatus.RetCode == ExecutionCanceled
+}
+
 // RunTests executes a series of test cases, processes their results, and returns a map of test IDs to TestResult.
 func RunTests(ctx context.Context, tests []string, cmdExec string, cmdArgs []string, timeout time.Duration) map[string]*TestResult {
 	testsResults := make(map[string]*TestResult)
@@ -298,11 +336,34 @@ func isParentSudo() bool {
 
 var RunAccountTests = RunAccountTestsWithSU
 
+// findSU locates a system `su` binary at a well-known path, bypassing PATH-based
+// lookup which may resolve to broken vendor wrappers (e.g. Nokia LSS's /opt/LSS/bin/su
+// which is a bash script without a shebang line).
+func findSU() (string, error) {
+	candidates := []string{"/bin/su", "/usr/bin/su"}
+	for _, p := range candidates {
+		if info, err := os.Stat(p); err == nil && !info.IsDir() && info.Mode()&0111 != 0 {
+			return p, nil
+		}
+	}
+	// Last-resort fallback to PATH lookup — may hit vendor wrappers.
+	return exec.LookPath("su")
+}
+
 // RunAccountTestsWithSU executes tests for multiple user accounts through `su`, ensuring environment parity for each test.
 // It iterates over provided user credentials, prints the currently tested account, and captures the results of each test.
 // Returns a slice of AccountTestResults containing the outcomes of the executed tests per user.
 func RunAccountTestsWithSU(ctx context.Context, tests []string, users map[string]string, timeout time.Duration) []*AccountTestResults {
 	var userTestsResults []*AccountTestResults
+
+	suPath, err := findSU()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: cannot locate 'su' binary: %v\n", err)
+		return nil
+	}
+	if suPath != "/bin/su" && suPath != "/usr/bin/su" {
+		fmt.Fprintf(os.Stderr, "WARNING: using non-standard 'su' at %q\n", suPath)
+	}
 
 	for login, shell := range users {
 		fmt.Fprintf(os.Stderr, "Testing account: %s\n", login)
@@ -323,7 +384,7 @@ func RunAccountTestsWithSU(ctx context.Context, tests []string, users map[string
 		// Execution of `bash` as a command/argument of `-c` makes `bash` to inherit the environment created by `shell -i` since `bash` is launched
 		// as a child process.
 		//userTestsResults = append(userTestsResults, NewAccountTestResults(login, RunTests(ctx, tests, "su", []string{"-l", login, "--session-command", fmt.Sprintf("%s -i -c sh", shell)}, timeout)))
-		userTestsResults = append(userTestsResults, NewAccountTestResults(login, RunTests(ctx, tests, "su", []string{"-l", login, "--session-command", shell}, timeout)))
+		userTestsResults = append(userTestsResults, NewAccountTestResults(login, RunTests(ctx, tests, suPath, []string{"-l", login, "--session-command"}, timeout)))
 	}
 	return userTestsResults
 }

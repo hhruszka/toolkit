@@ -33,6 +33,10 @@ If run with non-root account, test cases are executed for the current user.`,
 				return errors.New("wrong value for timeout option! timeout cannot be a negative value, aborting")
 			}
 
+			if os.Geteuid() != 0 && cliOptions.Users != "all" {
+				return errors.New("non-root user cannot execute tests for other users")
+			}
+
 			if err := validateFormat(cmd, cliOptions); err != nil {
 				return fmt.Errorf("failed to validate format: %w", err)
 			}
@@ -52,6 +56,7 @@ If run with non-root account, test cases are executed for the current user.`,
 	cmd.Flags().BoolVarP(&cliOptions.Failedonly, "failed-only", "", false, "create a report with failed only test cases")
 	cmd.Flags().BoolVarP(&cliOptions.Detailed, "detailed-report", "", false, "create a report with execution details for ticketing")
 	cmd.Flags().StringVarP(&cliOptions.Format, "output", "o", "xlsx", "file path or report format: text, xlsx or json.\nIf the file path is provided the extension determines the report format.")
+	cmd.Flags().StringVarP(&cliOptions.Users, "users", "u", "all", "comma separated list of user accounts to test.\nThis option is only available for root users.")
 	cmd.Flags().DurationVarP(&cliOptions.Timeout, "timeout", "t", time.Second*15, "timeout in seconds")
 	return cmd
 }
@@ -59,8 +64,23 @@ If run with non-root account, test cases are executed for the current user.`,
 // run executes a set of tests for users based on context, generates a report, and returns any errors encountered.
 func run(ctx context.Context, options *CliOptions) error {
 	var testsResults []*testengine.AccountTestResults
+	var cliUsers []string
+	var users map[string]string = make(map[string]string)
 
-	users := testengine.GetUsers()
+	foundUsers := testengine.GetUsers()
+
+	if options.Users != "all" {
+		cliUsers = strings.Split(options.Users, ",")
+
+		for _, user := range cliUsers {
+			if _, ok := foundUsers[user]; !ok {
+				return fmt.Errorf("user %s not found", user)
+			}
+			users[user] = foundUsers[user]
+		}
+	} else {
+		users = foundUsers
+	}
 
 	if os.Getuid() == 0 && len(users) > 0 {
 		testsResults = testengine.RunAccountTests(ctx, options.Tests, users, options.Timeout)
