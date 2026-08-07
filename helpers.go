@@ -11,6 +11,18 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+func Col(col int) string {
+	return _col(col)
+}
+
+func Cell(col, row int) string {
+	return _cell(col, row)
+}
+
+func CellLen(cellValue string) float64 {
+	return cellLen(cellValue)
+}
+
 // _col converts a column number to its corresponding Excel column letter. It panics if an error occurs during conversion.
 func _col(col int) string {
 	colStr, err := excelize.ColumnNumberToName(col)
@@ -40,6 +52,11 @@ func cellLen(cellValue string) float64 {
 	return width
 }
 
+// GetFontSize retrieves the font size of a specific cell in an Excel sheet and returns it as a float64 or an error.
+func GetFontSize(xlsxFile *excelize.File, sheetName string, cell string) (float64, error) {
+	return getFontSize(xlsxFile, sheetName, cell)
+}
+
 // getFontSize retrieves the font size of a specified cell in a given Excel sheet.
 // It returns the font size as a float64 or an error if the operation fails.
 func getFontSize(xlsxFile *excelize.File, sheetName string, cell string) (float64, error) {
@@ -60,6 +77,11 @@ func getFontSize(xlsxFile *excelize.File, sheetName string, cell string) (float6
 		return 11, nil // Return default size if none is set
 	}
 	return style.Font.Size, nil
+}
+
+// SetColWidth adjusts the width of specified columns in an Excel sheet based on the longest content in the given range.
+func SetColWidth(xlsxFile *excelize.File, sheetName string, startCol int, endCol int, startRow int, endRow int) error {
+	return setColWidth(xlsxFile, sheetName, startCol, endCol, startRow, endRow)
 }
 
 // setColWidth adjusts the width of specified columns in an Excel sheet based on the longest content in the given range.
@@ -97,6 +119,11 @@ func setColWidth(xlsxFile *excelize.File, sheetName string, startCol int, endCol
 		}
 	}
 	return err
+}
+
+// SetColStyle applies a predefined style to a range of columns in the specified sheet of an Excel file.
+func SetColStyle(xlsxFile *excelize.File, sheetName string, startCol int, endCol int, startRow int, endRow int) error {
+	return setColStyle(xlsxFile, sheetName, startCol, endCol, startRow, endRow)
 }
 
 // setColStyle applies a predefined style to a range of columns in the specified sheet of an Excel file.
@@ -168,18 +195,28 @@ func SetDefaultStyles(xlsxFile *excelize.File) {
 	})
 }
 
-func _Wrapped(v any) any {
+func Wrapped(v any) any {
 	if styleWrappedId == StyleDoesNotExist {
 		panic("SetDefaultStyles must be called before using _Wrapped")
 	}
 	return excelize.Cell{StyleID: styleWrappedId, Value: v}
 }
 
-func _notWrapped(v any) any {
+func NotWrapped(v any) any {
 	if styleNotWrappedId == StyleDoesNotExist {
 		panic("SetDefaultStyles must be called before using _notWrapped")
 	}
 	return excelize.Cell{StyleID: styleNotWrappedId, Value: v}
+}
+
+// FormatCols applies a predefined style to a range of columns in the specified worksheet of an Excel file.
+// xlsxFile is the Excel file object to modify.
+// sheetName is the name of the worksheet where the style will be applied.
+// startCol and endCol specify the column range to format.
+// startRow and endRow are reserved for potential future use.
+// Returns an error if the style application fails.
+func FormatCols(xlsxFile *excelize.File, sheetName string, startCol int, endCol int, startRow int, endRow int) error {
+	return setColStyle(xlsxFile, sheetName, startCol, endCol, startRow, endRow)
 }
 
 // formatCols applies column styles and adjusts column widths for a specified range in an Excel sheet.
@@ -192,6 +229,11 @@ func formatCols(xlsxFile *excelize.File, sheetName string, startCol int, endCol 
 	}
 	err = setColWidth(xlsxFile, sheetName, startCol, endCol, startRow, endRow)
 	return err
+}
+
+// CalculateWidth calculates the width of a string in Excel column width units based on the given font size.
+func CalculateWidth(s string, fontSize float64) float64 {
+	return calculateWidth(s, fontSize)
 }
 
 func calculateWidth(s string, fontSize float64) float64 {
@@ -224,6 +266,15 @@ func calculateWidth(s string, fontSize float64) float64 {
 	return (scaledPixels + 5.0) / 7.0
 }
 
+// SetColWidthWithStreamWriter adjusts the widths of consecutive columns starting from the specified column index.
+// sw is the Excel StreamWriter used for the operation.
+// col is the starting column index for width adjustment.
+// colWidths defines the widths applied to consecutive columns.
+// Returns an error if an issue occurs during the operation.
+func SetColWidthWithStreamWriter(sw *excelize.StreamWriter, col int, colWidths []int) error {
+	return setColWidthWithStreamWriter(sw, col, colWidths)
+}
+
 // setColWidthWithStreamWriter sets the widths of specified columns using the provided StreamWriter.
 // sw is the Excel StreamWriter used for writing operations.
 // colWidths is a slice of integers representing the widths to be applied to corresponding columns.
@@ -243,6 +294,11 @@ func setColWidthWithStreamWriter(sw *excelize.StreamWriter, col int, colWidths [
 		}
 	}
 	return nil
+}
+
+// SanitizeFilePath ensures a file path has a specified default extension and returns a sanitized version of the path.
+func SanitizeFilePath(filePath, defaultFilePath, defaultExtension string) string {
+	return sanitizeFilePath(filePath, defaultFilePath, defaultExtension)
 }
 
 // sanitizeFilePath ensures a file path has a default extension and returns a cleaned version of the path.
