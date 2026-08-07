@@ -17,25 +17,31 @@ func ValidateFormat(format string, supportedFormats []string) (string, string, e
 func validateFormat(format string, supportedFormats []string) (string, string, error) {
 	var reportFile string
 
-	reportFile = format
 	format = strings.ToLower(format)
+	format = strings.TrimSpace(format)
 
 	// 1. Check if config.Format specifies format and supported
 	// 2. Since config.Format does not specify format, check if file path specifies format through extension
 	if slices.Contains(supportedFormats, format) {
-		return format, reportFile, nil
+		return format, "", nil
 	}
+
+	reportFile = format
 	extension := filepath.Ext(format)
 
 	if extension != "" {
 		format = extension[1:]
 	}
-	if (extension == "" || format == "") && len(reportFile) > 0 {
+	if extension == "" || format == "" {
 		return "", "", fmt.Errorf("missing extension in the provided file path %s", reportFile)
 	}
 
 	if !slices.Contains(supportedFormats, format) {
 		return "", "", fmt.Errorf("%s is not a valid report format for the output option (-o or --output), aborting", format)
+	}
+
+	if strings.TrimSuffix(reportFile, filepath.Ext(reportFile)) == "" {
+		return "", "", fmt.Errorf("missing file name in the provided file path %s", reportFile)
 	}
 
 	if reportFile != "" {
