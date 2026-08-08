@@ -20,7 +20,7 @@ var NegativeMemoryRequestError = errors.New("request for negative memory")
 
 // AcquireMemory is a function that acquires a semaphore for the given amount of memory and returns a function to release it.
 func (mb *MemoryBank) AcquireMemory(ctx context.Context, size int64) (func(), error) {
-	if size <= 0 {
+	if size < 0 {
 		return func() {}, NegativeMemoryRequestError
 	}
 
