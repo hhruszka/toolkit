@@ -37,7 +37,7 @@ func (mb *MemoryBank) AcquireMemory(ctx context.Context, size int64) (func(), er
 }
 
 // NewMemoryBank initializes a MemoryBank instance with the specified memory limit and returns it.
-// If memoryBankLimit is non-positive, it returns nil. If an instance already exists, it returns the existing instance.
+// If memoryBankLimit is non-positive, it returns nil.
 func NewMemoryBank(memoryBankLimit int64) *MemoryBank {
 	if memoryBankLimit <= 0 {
 		return nil
