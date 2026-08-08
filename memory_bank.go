@@ -12,8 +12,6 @@ type MemoryBank struct {
 	*semaphore.Weighted
 }
 
-var memoryBank *MemoryBank
-
 // FileExceedsMemoryLimitError is returned when a file exceeds the memory limit.
 var RequestExceedsMemoryLimitError = errors.New("file exceeds memory limit")
 var NegativeMemoryRequestError = errors.New("request for negative memory")
@@ -38,21 +36,15 @@ func (mb *MemoryBank) AcquireMemory(ctx context.Context, size int64) (func(), er
 	return func() { mb.Release(size) }, nil
 }
 
-// NewMemoryBank initializes a singleton MemoryBank instance with the specified memory limit and returns it.
+// NewMemoryBank initializes a MemoryBank instance with the specified memory limit and returns it.
 // If memoryBankLimit is non-positive, it returns nil. If an instance already exists, it returns the existing instance.
 func NewMemoryBank(memoryBankLimit int64) *MemoryBank {
 	if memoryBankLimit <= 0 {
 		return nil
 	}
 
-	if memoryBank != nil {
-		return memoryBank
-	}
-
-	memoryBank = &MemoryBank{
+	return &MemoryBank{
 		memoryBankLimit: memoryBankLimit,
 		Weighted:        semaphore.NewWeighted(memoryBankLimit),
 	}
-
-	return memoryBank
 }
