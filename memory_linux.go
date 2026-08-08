@@ -1,6 +1,8 @@
 package bptcommon
 
 import (
+	"bytes"
+	"errors"
 	"math"
 	"os"
 	"strconv"
@@ -10,9 +12,10 @@ import (
 
 // MemoryConfig holds the calculated limits in bytes
 type MemoryConfig struct {
-	TotalSystemRAM int64
-	GoMemLimit     int64 // 80% of total
-	SemaphoreLimit int64 // 55% of total
+	TotalSystemRAM     int64
+	GoMemLimit         int64 // 80% of total
+	SemaphoreLimit     int64 // 55% of total
+	AppMemoryFootprint int64 // RSS
 }
 
 // CalculateMemoryLimits determines the optimal memory bounds for the application.
@@ -24,6 +27,12 @@ func CalculateMemoryLimits() (MemoryConfig, error) {
 		GoMemLimit:     int64(float64(totalRAM) * 0.80),
 		SemaphoreLimit: int64(float64(totalRAM) * 0.55),
 	}
+
+	rss, err := getRSS()
+	if err != nil {
+		return config, err
+	}
+	config.AppMemoryFootprint = int64(rss)
 
 	return config, nil
 }
@@ -61,4 +70,30 @@ func getSystemMemory() int64 {
 
 	// 4. Absolute fallback if everything fails (default to 1GB to prevent panics)
 	return 1024 * 1024 * 1024
+}
+
+var UnexpectedStatMemoryFormatError = errors.New("unexpected format in /proc/self/statm")
+
+// getLinuxRSS retrieves the resident set size (RSS) memory used by the current process in bytes on Linux systems.
+// It reads from the "/proc/self/statm" file and multiplies the RSS value (in pages) by the OS page size.
+func getRSS() (uint64, error) {
+	data, err := os.ReadFile("/proc/self/statm")
+	if err != nil {
+		return 0, err
+	}
+
+	fields := bytes.Fields(data)
+	if len(fields) < 2 {
+		return 0, UnexpectedStatMemoryFormatError
+	}
+
+	rssPages, err := strconv.ParseUint(string(fields[1]), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	pageSize := uint64(os.Getpagesize())
+	rssBytes := rssPages * pageSize
+
+	return rssBytes, nil
 }
