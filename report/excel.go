@@ -194,16 +194,38 @@ func SetDefaultStyles(xlsxFile *excelize.File) {
 	})
 }
 
+// StyleWrapped returns the identifier associated with the wrapped style.
+// Panics if the default styles have not been initialized using SetDefaultStyles().
+func StyleWrapped() int {
+	if styleWrappedId == StyleDoesNotExist {
+		panic("SetDefaultStyles() must be called before using StyleWrapped")
+	}
+	return styleWrappedId
+}
+
+// StyleNotWrapped returns the identifier for a style that is not wrapped.
+// Panics if the default styles have not been initialized using SetDefaultStyles().
+func StyleNotWrapped() int {
+	if styleNotWrappedId == StyleDoesNotExist {
+		panic("SetDefaultStyles() must be called before using StyleNotWrapped")
+	}
+	return styleNotWrappedId
+}
+
+// Wrapped creates a new wrapped cell style for the given value, panicking if default styles are not initialized.
+// Panics if the default styles have not been initialized using SetDefaultStyles().
 func Wrapped(v any) any {
 	if styleWrappedId == StyleDoesNotExist {
-		panic("SetDefaultStyles must be called before using Wrapped")
+		panic("SetDefaultStyles() must be called before using Wrapped")
 	}
 	return excelize.Cell{StyleID: styleWrappedId, Value: v}
 }
 
+// NotWrapped returns a Cell with a StyleID that prevents text wrapping and assigns the provided value to the Cell.
+// Panics if the default styles have not been initialized using SetDefaultStyles().
 func NotWrapped(v any) any {
 	if styleNotWrappedId == StyleDoesNotExist {
-		panic("SetDefaultStyles must be called before using NotWrapped")
+		panic("SetDefaultStyles() must be called before using NotWrapped")
 	}
 	return excelize.Cell{StyleID: styleNotWrappedId, Value: v}
 }
