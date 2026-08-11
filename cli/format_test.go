@@ -1,4 +1,4 @@
-package bptcommon
+package cli
 
 import "testing"
 

@@ -1,6 +1,6 @@
 //go:build linux
 
-package bptcommon
+package memory
 
 import (
 	"bytes"

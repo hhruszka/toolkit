@@ -1,4 +1,4 @@
-package bptcommon
+package report
 
 import (
 	"testing"

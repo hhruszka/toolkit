@@ -1,6 +1,6 @@
 //go:build !linux
 
-package bptcommon
+package memory
 
 import "github.com/shirou/gopsutil/v3/mem"
 

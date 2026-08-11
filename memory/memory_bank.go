@@ -1,4 +1,4 @@
-package bptcommon
+package memory
 
 import (
 	"context"

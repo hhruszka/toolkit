@@ -1,4 +1,4 @@
-package bptcommon
+package memory
 
 // MemoryConfig holds the calculated limits in bytes
 type MemoryConfig struct {

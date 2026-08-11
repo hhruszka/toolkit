@@ -1,4 +1,4 @@
-package bptcommon
+package pool
 
 import "sync"
 
