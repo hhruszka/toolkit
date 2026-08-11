@@ -131,7 +131,7 @@ func SetColStyle(xlsxFile *excelize.File, sheetName string, startCol int, endCol
 // startCol and endCol define the range of columns to style.
 // startRow and endRow are not currently used but reserved for potential future functionality.
 // Returns an error if the style creation or application fails.
-func setColStyle(xlsxFile *excelize.File, sheetName string, startCol int, endCol int, startRow int, endRow int) error {
+func setColStyle(xlsxFile *excelize.File, sheetName string, startCol int, endCol int, _ int, _ int) error {
 	style := &excelize.Style{
 		Border:        nil,
 		Fill:          excelize.Fill{},
@@ -196,14 +196,14 @@ func SetDefaultStyles(xlsxFile *excelize.File) {
 
 func Wrapped(v any) any {
 	if styleWrappedId == StyleDoesNotExist {
-		panic("SetDefaultStyles must be called before using _Wrapped")
+		panic("SetDefaultStyles must be called before using Wrapped")
 	}
 	return excelize.Cell{StyleID: styleWrappedId, Value: v}
 }
 
 func NotWrapped(v any) any {
 	if styleNotWrappedId == StyleDoesNotExist {
-		panic("SetDefaultStyles must be called before using _notWrapped")
+		panic("SetDefaultStyles must be called before using NotWrapped")
 	}
 	return excelize.Cell{StyleID: styleNotWrappedId, Value: v}
 }
@@ -293,4 +293,29 @@ func setColWidthWithStreamWriter(sw *excelize.StreamWriter, col int, colWidths [
 		}
 	}
 	return nil
+}
+
+// SetSheetName renames the first or creates a new sheet in an Excel file, truncating the name if it exceeds 31 characters.
+func SetSheetName(xlsxFile *excelize.File, sheetName string) (string, error) {
+	return setSheetName(xlsxFile, sheetName)
+}
+
+// setSheetName sets the name of the first or a new sheet in the Excel file, truncating the name if it exceeds 31 characters.
+// It returns the updated sheet name or an error if the operation fails.
+func setSheetName(xlsxFile *excelize.File, sheetName string) (string, error) {
+	var err error
+
+	if len(sheetName) > 31 {
+		sheetName = sheetName[:excelize.MaxSheetNameLength]
+	}
+	if xlsxFile.SheetCount == 1 && xlsxFile.GetSheetName(0) == "Sheet1" {
+		err = xlsxFile.SetSheetName(xlsxFile.GetSheetName(0), sheetName)
+		if err != nil {
+			// this is the first and the only tab. We cannot change its name to 31 char name
+			return "", err
+		}
+	} else if _, err = xlsxFile.NewSheet(sheetName); err != nil {
+		return "", err
+	}
+	return sheetName, nil
 }
