@@ -67,7 +67,10 @@ func run(ctx context.Context, options *CliOptions) error {
 	var cliUsers []string
 	var users map[string]string = make(map[string]string)
 
-	foundUsers := testengine.GetUsers()
+	foundUsers, err := testengine.GetUsers()
+	if err != nil {
+		return fmt.Errorf("failed to get users: %w", err)
+	}
 
 	if options.Users != "all" {
 		cliUsers = strings.Split(options.Users, ",")
@@ -96,7 +99,7 @@ func run(ctx context.Context, options *CliOptions) error {
 		// Execution of `bash` as a command/argument of `-c` makes `bash` to inherit the environment created by `shell -i` since `bash` is launched
 		// as a child process.
 		//testsResults = append(testsResults, testengine.NewAccountTestResults(UserName, testengine.RunTests(tests, shell, []string{"-i", "-c", "sh"}, timeout)))
-		testsResults = append(testsResults, testengine.NewAccountTestResults(UserName, testengine.RunTests(ctx, options.Tests, shell, nil, options.Timeout)))
+		testsResults = append(testsResults, testengine.NewAccountTestResults(UserName, testengine.RunTests(ctx, options.Tests, shell, []string{"-c"}, options.Timeout)))
 	}
 
 	if options.Failedonly {
@@ -142,7 +145,7 @@ func validateFormat(_ *cobra.Command, cliOptions *CliOptions) error {
 	}
 
 	// the '--failed-only' flag can be set only with text report format.
-	if cliOptions.Failedonly && (cliOptions.Format == "xlsx" || cliOptions.Format == "xlx" || cliOptions.Format == "json") {
+	if cliOptions.Failedonly && (cliOptions.Format == "xlsx" || cliOptions.Format == "xls" || cliOptions.Format == "json") {
 		return fmt.Errorf("--failed-only flag can only be used with text report format")
 	}
 
@@ -164,15 +167,16 @@ func validateFormat(_ *cobra.Command, cliOptions *CliOptions) error {
 func validateTests(_ *cobra.Command, args []string, cliOptions *CliOptions) error {
 	for _, arg := range args {
 		for _, test := range strings.Split(arg, ",") {
-			if strings.TrimSpace(test) != "" {
-				cliOptions.Tests = append(cliOptions.Tests, strings.TrimSpace(test))
+			test = strings.TrimSpace(test)
+			if test != "" {
+				cliOptions.Tests = append(cliOptions.Tests, strings.ToUpper(test))
 			}
 		}
 	}
 
 	// verification of test cases passed through cli.
 	for _, testId := range cliOptions.Tests {
-		if !testengine.IsTestCase(strings.ToUpper(testId)) {
+		if !testengine.IsTestCase(testId) {
 			return fmt.Errorf("The %[2]s is not a valid test case id. Usee '%[1]s list' to list valid test cases. Aborting!", os.Args[0], testId)
 		}
 	}

@@ -14,7 +14,7 @@ var appLogger *zap.Logger // Declaring a package-level logger variable
 // It sets up the logging level, encoding (development-friendly console format),
 // output paths, and replaces the global Zap logger instance so it can be
 // accessed from anywhere using zap.L() or zap.S().
-func InitLogger(logLevel string, logFilePath string) (*zap.Logger, error) {
+func InitLogger(logLevel string, logFilePath string) (*zap.Logger, func(), error) {
 	// Define the minimum logging level.
 	// We'll use an AtomicLevel to allow dynamic changes at runtime.
 	var level zapcore.Level
@@ -63,7 +63,20 @@ func InitLogger(logLevel string, logFilePath string) (*zap.Logger, error) {
 	// AddCaller() includes file and line number.
 	// AddStacktrace() captures stack traces for ErrorLevel and above (default for development).
 	appLogger = zap.New(core, zap.AddCaller())
-	return appLogger, nil
+	closer := func() {
+		if appLogger != nil {
+			appLogger.Info("Flushing global Zap logger buffers...")
+			if err := appLogger.Sync(); err != nil {
+				// Sync can return an error if the underlying WriteSyncer fails.
+				// This often happens if stdout/stderr are closed prematurely.
+				fmt.Fprintf(os.Stderr, "Error syncing logger: %v\n", err)
+			}
+		}
+		if fileSyncer != nil {
+			fileSyncer.Close()
+		}
+	}
+	return appLogger, closer, nil
 }
 
 // CloseLogger ensures that any buffered log entries are flushed before the application exits.

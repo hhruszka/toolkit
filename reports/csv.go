@@ -3,17 +3,24 @@ package reports
 import (
 	"bptvnftester/testengine"
 	"bytes"
+	"encoding/csv"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
 func SaveToCSVFile(hostTestReport *HostTestReport, filePath string) error {
-	var report bytes.Buffer
+	report := new(bytes.Buffer)
+	w := csv.NewWriter(report)
 
-	_, _ = fmt.Fprintf(&report, "Host,User,Test Id,Abstract, Result,Execution Code, Stdout, Stderr\n")
+	err := w.Write([]string{"Host", "User", "Test Id", "Abstract", "Result", "Execution Code", "Stdout", "Stderr"})
+	if err != nil {
+		return fmt.Errorf("failed to write header to CSV file: %v", err)
+	}
 
 	for _, testsResults := range hostTestReport.Tests {
 		var sortedTestIds []string
@@ -25,11 +32,15 @@ func SaveToCSVFile(hostTestReport *HostTestReport, filePath string) error {
 
 		for _, testId := range sortedTestIds {
 			if testengine.AllTestCases[testId].IsTest {
-				_, _ = fmt.Fprintf(&report, "%q,%q,%q,%q,%q,%d,%q,%q\n", hostTestReport.HostName, testsResults.UserName, testId, testengine.GetAbstract(testId), resultToString(testsResults.ExecTestStatuses[testId].Result), testsResults.ExecTestStatuses[testId].ExecStatus.RetCode, testsResults.ExecTestStatuses[testId].ExecStatus.Stdout, testsResults.ExecTestStatuses[testId].ExecStatus.Stderr)
+				err = w.Write([]string{hostTestReport.HostName, testsResults.UserName, testId, testengine.GetAbstract(testId), resultToString(testsResults.ExecTestStatuses[testId].Result), strconv.Itoa(int(testsResults.ExecTestStatuses[testId].ExecStatus.RetCode)), strings.Join(testsResults.ExecTestStatuses[testId].ExecStatus.Stdout, "\n"), strings.Join(testsResults.ExecTestStatuses[testId].ExecStatus.Stderr, "\n")})
+				if err != nil {
+					return fmt.Errorf("failed to write header to CSV file: %v", err)
+				}
 			}
 		}
 	}
 
+	w.Flush()
 	return saveToCSVFile(hostTestReport.HostName, filePath, report.Bytes())
 }
 

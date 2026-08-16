@@ -1,8 +1,10 @@
 package testengine
 
 import (
-	"go.uber.org/zap"
+	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func getvnfbpt66Dependencies(testId string, depExecResults map[string]map[string]*ExecutionStatus) []string {
@@ -13,15 +15,26 @@ func getvnfbpt66Dependencies(testId string, depExecResults map[string]map[string
 	return execStatus.Stdout
 }
 
+// getEnvVars extracts environment variables from the execution status of a dependent test case and returns them as a map.
+func getEnvVars(env []string) map[string]string {
+	envVars := make(map[string]string)
+	for _, str := range env {
+		varName, varValue, found := strings.Cut(str, "=")
+		if found {
+			envVars[varName] = varValue
+		}
+	}
+
+	return envVars
+}
+
 func vnfbpt66(testId string, depExecResults map[string]map[string]*ExecutionStatus) *ExecutionStatus {
 	execTime := time.Now().UTC()
 
 	depValues := getvnfbpt66Dependencies(testId, depExecResults)
-	cf := func() map[string]string { return GetEnvVars(depValues) }
-	ec := NewEnvVarCollector(WithCollectorFunc(cf))
 
 	sd := NewSecretDetector(WithExcludeEnvVarFunc(isExcludedEnvVar), WithLogger(zap.L(), "VNFBPT66"))
-	envVars := ec.CollectAllEnVars()
+	envVars := getEnvVars(depValues)
 	results := sd.DetectSecrets(envVars)
 
 	retCode := Success

@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/xuri/excelize/v2"
+	rp "gitlabe1.ext.net.nokia.com/cn-pentesting-repo/bpt-common/report"
 )
 
 // saveTestReportsToXLSX writes test reports from multiple namespaces to an Excel file using the provided structure.
 // Takes a slice of NamespaceTestReport and an Excel file to modify. Returns an error on failure.
 func saveTestReportsXLSXStream(report *HostTestReport, xlsxFile *excelize.File) error {
-	SetDefaultStyles(xlsxFile)
+	rp.SetDefaultStyles(xlsxFile)
 
 	for _, accountReport := range report.Tests {
 		if err := saveTestReportXLSXStream(report.HostName, report.Version, accountReport, accountReport.UserName, xlsxFile); err != nil {
@@ -97,7 +98,7 @@ func saveTestReportXLSXStream(hostName string, version string, accountResults *t
 		sw  *excelize.StreamWriter
 	)
 
-	sheetName, err = setSheetName(xlsxFile, sheetName)
+	sheetName, err = rp.SetSheetName(xlsxFile, sheetName)
 	if err != nil {
 		return fmt.Errorf("failed to set sheet name; %w", err)
 	}
@@ -112,13 +113,13 @@ func saveTestReportXLSXStream(hostName string, version string, accountResults *t
 	headers := []interface{}{"Host", "Time", "App Version", "User", "Test ID", "Test Title", "Result", "Return Code", "Errors", "Stdout", "Stderr", "JIRA Ticker", "Remarks"}
 
 	colWidth := calcColumnWidthTestResults(hostName, version, accountResults, headers)
-	if err = setColWidthWithStreamWriter(sw, col, colWidth); err != nil {
+	if err = rp.SetColWidthWithStreamWriter(sw, col, colWidth); err != nil {
 		return fmt.Errorf("failed to set column width; %w", err)
 	}
 
 	// Write header row
 	headerRow := 1
-	err = sw.SetRow(_cell(col, headerRow), headers)
+	err = sw.SetRow(rp.Cell(col, headerRow), headers)
 	if err != nil {
 		return fmt.Errorf("failed to write header row; %w", err)
 	}
@@ -131,19 +132,19 @@ func saveTestReportXLSXStream(hostName string, version string, accountResults *t
 	for _, testId := range testIDs {
 		test := tests[testId]
 		values := []interface{}{
-			excelize.Cell{StyleID: styleNotWrappedId, Value: hostName},
-			excelize.Cell{StyleID: styleNotWrappedId, Value: test.ExecStatus.ExecTime.Format(time.RFC822)},
-			excelize.Cell{StyleID: styleNotWrappedId, Value: version},
-			excelize.Cell{StyleID: styleNotWrappedId, Value: accountResults.UserName},
-			excelize.Cell{StyleID: styleNotWrappedId, Value: testId},
-			excelize.Cell{StyleID: styleNotWrappedId, Value: testengine.GetAbstract(testId)},
-			excelize.Cell{StyleID: styleNotWrappedId, Value: testResult(test, false)},
-			excelize.Cell{StyleID: styleNotWrappedId, Value: test.ExecStatus.RetCode},
-			excelize.Cell{StyleID: styleWrappedId, Value: strings.Join(test.ExecStatus.Error, "\n")},
-			excelize.Cell{StyleID: styleWrappedId, Value: strings.Join(test.ExecStatus.Stdout, "\n")},
-			excelize.Cell{StyleID: styleWrappedId, Value: strings.Join(test.ExecStatus.Stderr, "\n")},
+			excelize.Cell{StyleID: rp.StyleNotWrapped(), Value: hostName},
+			excelize.Cell{StyleID: rp.StyleNotWrapped(), Value: test.ExecStatus.ExecTime.Format(time.RFC822)},
+			excelize.Cell{StyleID: rp.StyleNotWrapped(), Value: version},
+			excelize.Cell{StyleID: rp.StyleNotWrapped(), Value: accountResults.UserName},
+			excelize.Cell{StyleID: rp.StyleNotWrapped(), Value: testId},
+			excelize.Cell{StyleID: rp.StyleNotWrapped(), Value: testengine.GetAbstract(testId)},
+			excelize.Cell{StyleID: rp.StyleNotWrapped(), Value: testResult(test, false)},
+			excelize.Cell{StyleID: rp.StyleNotWrapped(), Value: test.ExecStatus.RetCode},
+			excelize.Cell{StyleID: rp.StyleWrapped(), Value: strings.Join(test.ExecStatus.Error, "\n")},
+			excelize.Cell{StyleID: rp.StyleWrapped(), Value: strings.Join(test.ExecStatus.Stdout, "\n")},
+			excelize.Cell{StyleID: rp.StyleWrapped(), Value: strings.Join(test.ExecStatus.Stderr, "\n")},
 		}
-		err = sw.SetRow(_cell(col, row), values)
+		err = sw.SetRow(rp.Cell(col, row), values)
 		if err != nil {
 			return fmt.Errorf("failed to write data row; %w", err)
 		}
@@ -231,7 +232,7 @@ func saveTestResultsVNFBPT66XLSStream(report *HostTestReport, sheetName string, 
 		sw  *excelize.StreamWriter
 	)
 
-	sheetName, err = setSheetName(xlsxFile, sheetName)
+	sheetName, err = rp.SetSheetName(xlsxFile, sheetName)
 	if err != nil {
 		return fmt.Errorf("failed to set sheet name; %w", err)
 	}
@@ -244,13 +245,13 @@ func saveTestResultsVNFBPT66XLSStream(report *HostTestReport, sheetName string, 
 
 	col, _ := excelize.ColumnNameToNumber("A")
 	colWidth := calcColumnWidthVNFBPT66TestResults(report, headers)
-	if err = setColWidthWithStreamWriter(sw, col, colWidth); err != nil {
+	if err = rp.SetColWidthWithStreamWriter(sw, col, colWidth); err != nil {
 		return fmt.Errorf("failed to set column width; %w", err)
 	}
 
 	// Set a header row
 	headerRow := 1
-	if err = sw.SetRow(_cell(1, headerRow), headers); err != nil {
+	if err = sw.SetRow(rp.Cell(1, headerRow), headers); err != nil {
 		return fmt.Errorf("failed to write header row; %w", err)
 	}
 
@@ -280,7 +281,7 @@ func saveTestResultsVNFBPT66XLSStream(report *HostTestReport, sheetName string, 
 							result.File(),
 							result.Readable(),
 						}
-						if err = sw.SetRow(_cell(col, row), values); err != nil {
+						if err = sw.SetRow(rp.Cell(col, row), values); err != nil {
 							return fmt.Errorf("failed to write data row; %w", err)
 						}
 						row++
@@ -291,7 +292,7 @@ func saveTestResultsVNFBPT66XLSStream(report *HostTestReport, sheetName string, 
 	}
 
 	if row-headerRow == 1 {
-		_ = sw.SetRow(_cell(col, row), []interface{}{"Nothing to report"})
+		_ = sw.SetRow(rp.Cell(col, row), []interface{}{"Nothing to report"})
 	}
 	if err = sw.Flush(); err != nil {
 		return fmt.Errorf("failed to flush stream writer; %w", err)

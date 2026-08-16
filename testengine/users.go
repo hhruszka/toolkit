@@ -1,14 +1,13 @@
 package testengine
 
 import (
-	"bptvnftester/log"
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 )
 
@@ -19,40 +18,6 @@ func contains(str string, patterns ...string) bool {
 		}
 	}
 	return false
-}
-
-const DEFAULT_MIN_USER_UID = 1000
-
-// getMinUID parses the /etc/login.defs file to find the minimum user ID.
-func getMinUID() int {
-	file, err := os.Open("/etc/login.defs")
-	if err != nil {
-		return DEFAULT_MIN_USER_UID
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "#") || line == "" {
-			continue
-		}
-
-		fields := strings.Fields(line)
-		if len(fields) == 2 && fields[0] == "UID_MIN" {
-			minUID, err := strconv.Atoi(fields[1])
-			if err != nil {
-				return DEFAULT_MIN_USER_UID
-			}
-			return minUID
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return DEFAULT_MIN_USER_UID
-	}
-
-	return DEFAULT_MIN_USER_UID
 }
 
 func getent() (io.Reader, error) {
@@ -72,12 +37,12 @@ func getent() (io.Reader, error) {
 
 var GetUsers = getUsers
 
-func getUsers() map[string]string {
+func getUsers() (map[string]string, error) {
 	var users map[string]string = make(map[string]string)
 
 	passwd, err := getent()
 	if err != nil {
-		return users
+		return nil, err
 	}
 
 	// Create a scanner to read the file
@@ -88,7 +53,7 @@ func getUsers() map[string]string {
 		// Split the line into fields separated by colons
 		fields := strings.Split(scanner.Text(), ":")
 		if len(fields) < 7 {
-			log.Logln("Wrong format of /etc/passwd")
+			//log.Logln("Wrong format of /etc/passwd")
 			continue
 		}
 
@@ -106,8 +71,8 @@ func getUsers() map[string]string {
 
 	// Check for errors during scanning
 	if err := scanner.Err(); err != nil {
-		log.Fatal("Error reading /etc/passwd:", err)
+		return nil, fmt.Errorf("failed reading /etc/passwd: %w", err)
 	}
 
-	return users
+	return users, nil
 }

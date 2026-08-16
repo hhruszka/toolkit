@@ -3,6 +3,8 @@ package testengine
 import (
 	"strings"
 	"time"
+
+	"gitlabe1.ext.net.nokia.com/cn-pentesting-repo/bpt-common/verdict"
 )
 
 // ExitCode is an enumeration of possible exit codes with descriptive names.
@@ -67,20 +69,20 @@ func (es *ExecutionStatus) GetData() any {
 	return es.Data
 }
 
-type TestResultStatus int
-
-const (
-	Passed TestResultStatus = iota
-	Failed
-	Timeout
-	NotApplicable
-)
+//type TestResultStatus int
+//
+//const (
+//	Passed TestResultStatus = iota
+//	Failed
+//	Timeout
+//	NotApplicable
+//)
 
 type TestResults struct {
-	TestId     string
+	ID         string
+	Status     verdict.Verdict
 	ExecStatus *ExecutionStatus
-	Status     TestResultStatus
-	Error      string
+	Reason     string
 	Data       any
 }
 

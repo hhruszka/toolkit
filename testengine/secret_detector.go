@@ -2,10 +2,11 @@ package testengine
 
 import (
 	"bptvnftester/utils"
-	core "github.com/hhruszka/secretscanner/regex"
-	"go.uber.org/zap"
 	"os"
 	"strings"
+
+	core "github.com/hhruszka/secretscanner/regex"
+	"go.uber.org/zap"
 )
 
 type FilePathValidator interface {
@@ -315,7 +316,7 @@ func (s *SecretDetector) checkHighConfidenceSecretPatterns(name, value string) *
 		secret.file = true
 		secret.confidence = 2
 		if readableFlag {
-			confidence = 3
+			secret.confidence = 3
 		}
 		secret.sectype = "Sensitive file path in env. variable value"
 	}
@@ -450,19 +451,19 @@ func (s *SecretDetector) checkUserPatterns(name, value string) *SecretDetectorRe
 func (s *SecretDetector) checkSensitiveFilesPatterns(name, value string) *SecretDetectorResult {
 	// Check if it's a file path first (cheap operation)
 	filePaths := s.fileValidator.FindFilePaths(value)
-	if filePaths == nil && len(filePaths) == 0 {
+	if filePaths == nil || len(filePaths) == 0 {
 		return nil
 	}
 
 	var sensitiveFiles []string
 	for _, filePath := range filePaths {
-		if !s.patterns.SensitiveFilesRegex.MatchString(filePath) {
+		if s.patterns.SensitiveFilesRegex.MatchString(filePath) {
 			sensitiveFiles = append(sensitiveFiles, filePath)
 		}
 	}
 
 	// Only then check the regex pattern (expensive operation)
-	if sensitiveFiles != nil || len(sensitiveFiles) == 0 {
+	if sensitiveFiles == nil || len(sensitiveFiles) == 0 {
 		return nil
 	}
 
@@ -475,11 +476,11 @@ func (s *SecretDetector) checkSensitiveFilesPatterns(name, value string) *Secret
 		if s.patterns.SensitiveFilesRegex.MatchString(file) {
 			if s.fileValidator.CheckReadability(file) {
 				readableFlag = true
-				valueString.WriteString("\nReadable: %s")
+				valueString.WriteString("\nReadable: ")
 				valueString.WriteString(file)
 			} else {
 				confidence = 2
-				valueString.WriteString("\nNot readable: %s")
+				valueString.WriteString("\nNot readable: ")
 				valueString.WriteString(file)
 			}
 		}
@@ -498,19 +499,19 @@ func (s *SecretDetector) checkSensitiveFilesPatterns(name, value string) *Secret
 func (s *SecretDetector) checkSensitiveFilePaths(name, value string) *SecretDetectorResult {
 	// Check if it's a file path first (cheap operation)
 	filePaths := s.fileValidator.FindFilePaths(value)
-	if filePaths == nil && len(filePaths) == 0 {
+	if filePaths == nil || len(filePaths) == 0 {
 		return nil
 	}
 
 	var sensitiveFilePaths []string
 	for _, filePath := range filePaths {
-		if !s.patterns.SensitiveFilePathsRegex.MatchString(filePath) {
+		if s.patterns.SensitiveFilePathsRegex.MatchString(filePath) {
 			sensitiveFilePaths = append(sensitiveFilePaths, filePath)
 		}
 	}
 
 	// Only then check the regex pattern (expensive operation)
-	if sensitiveFilePaths != nil || len(sensitiveFilePaths) == 0 {
+	if sensitiveFilePaths == nil || len(sensitiveFilePaths) == 0 {
 		return nil
 	}
 
@@ -524,10 +525,10 @@ func (s *SecretDetector) checkSensitiveFilePaths(name, value string) *SecretDete
 			if s.fileValidator.CheckReadability(file) {
 				confidence = 3
 				readableFlag = true
-				valueString.WriteString("\nReadable: %s")
+				valueString.WriteString("\nReadable: ")
 				valueString.WriteString(file)
 			} else {
-				valueString.WriteString("\nNot readable: %s")
+				valueString.WriteString("\nNot readable: ")
 				valueString.WriteString(file)
 			}
 		}

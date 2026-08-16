@@ -17,20 +17,20 @@ func readSampleOfFile(fileName string) ([]byte, error) {
 		return nil, err
 	}
 
-	if fileInfo.Size() >= MAX_FILE_SIZE {
-		fileData = make([]byte, MAX_FILE_SIZE)
-	}
+	fileData = make([]byte, min(fileInfo.Size(), MAX_FILE_SIZE))
+
 	file, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	_, err = file.Read(fileData)
+	var n int
+	n, err = file.Read(fileData)
 	if err != nil {
 		return nil, err
 	}
-	return fileData, nil
+	return fileData[:n], nil
 }
 
 func IsPlainTextFile(fileName string) bool {

@@ -3,11 +3,11 @@ package testengine
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"maps"
-	"math/rand"
 	"os"
 	"os/exec"
 	"os/user"
@@ -188,10 +188,10 @@ func ExecTest(ctx context.Context, execTest func(context.Context, string, string
 		if dep.Type == Stdout {
 			// note "%q"
 			//fmt.Printf("%s=%q\n", dep.VarName, strings.Join(depExecResult.Stdout, " "))
-			cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%q\n", dep.VarName, strings.Join(depExecResult.Stdout, " ")))
+			cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%q", dep.VarName, strings.Join(depExecResult.Stdout, " ")))
 		}
 		if dep.Type == ExitCode {
-			cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%t\n", dep.VarName, depExecResult.RetCode == Success))
+			cmdEnv = append(cmdEnv, fmt.Sprintf("%s=%t", dep.VarName, depExecResult.RetCode == Success))
 		}
 		if dep.Type == TestFunc {
 			if depExecStatuses == nil {

@@ -6,11 +6,12 @@ import (
 	"strings"
 )
 
+var re = regexp.MustCompile(`\$\((\w+)\)`)
+
 // convertSyntax converts custom variable syntax $(VAR) to ${VAR}
 // so that os.Expand can recognize it.
 func convertSyntax(input string) string {
 	// Use a regular expression to match the $(VAR) pattern.
-	re := regexp.MustCompile(`\$\((\w+)\)`)
 	return re.ReplaceAllString(input, `$${$1}`)
 }
 
@@ -19,6 +20,7 @@ func convertSyntax(input string) string {
 // other variables (using either ${VAR} or $(VAR) syntax),
 // it returns a new map with fully expanded values.
 func ExpandEnvMap(vars map[string]string) map[string]string {
+	resolving := make(map[string]bool)
 	expanded := make(map[string]string)
 
 	// Recursive helper to expand a single value.
@@ -35,6 +37,10 @@ func ExpandEnvMap(vars map[string]string) map[string]string {
 			}
 			// Otherwise, if it exists in our original map, expand it.
 			if v, ok := vars[key]; ok {
+				if resolving[key] {
+					return ""
+				}
+				resolving[key] = true
 				res := expand(v)
 				// Cache the expanded result.
 				expanded[key] = res
@@ -48,6 +54,10 @@ func ExpandEnvMap(vars map[string]string) map[string]string {
 
 	// Expand every variable.
 	for key, value := range vars {
+		if _, done := expanded[key]; done {
+			continue
+		}
+		resolving[key] = true
 		expanded[key] = expand(value)
 	}
 	return expanded
@@ -62,12 +72,6 @@ func GetEnvVars(env []string) map[string]string {
 			envVars[varName] = varValue
 		}
 	}
-
-	//user, ok := envVars["USER"]
-	//if !ok {
-	//	user = os.Getenv("USER")
-	//	_ = user
-	//}
 
 	return ExpandEnvMap(envVars)
 }

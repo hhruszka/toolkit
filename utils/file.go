@@ -44,8 +44,12 @@ func IsDirectory(path string) (bool, error) {
 
 func IsExecutable(filePath string) bool {
 	var fileInfo fs.FileInfo
+	var err error
 
-	fileInfo, _ = os.Stat(filePath)
+	fileInfo, err = os.Stat(filePath)
+	if err != nil {
+		return false
+	}
 	fileStat := fileInfo.Sys().(*syscall.Stat_t)
 
 	// We need to switch to syscall.Getuid() because

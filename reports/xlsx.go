@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/xuri/excelize/v2"
+	rp "gitlabe1.ext.net.nokia.com/cn-pentesting-repo/bpt-common/report"
 )
 
 func prepXLSXFile(xlsxFile *excelize.File) error {
@@ -43,7 +44,7 @@ func saveTestReportsToXLSX(report *HostTestReport, xlsxFile *excelize.File) erro
 func saveTestReportToXLSX(hostName string, version string, accountResults *testengine.AccountTestResults, sheetName string, xlsxFile *excelize.File) error {
 	var err error
 
-	sheetName, err = setSheetName(xlsxFile, sheetName)
+	sheetName, err = rp.SetSheetName(xlsxFile, sheetName)
 	if err != nil {
 		return fmt.Errorf("failed to set sheet name; %w", err)
 	}
@@ -52,7 +53,7 @@ func saveTestReportToXLSX(hostName string, version string, accountResults *teste
 	headerRow := 1
 	headers := []string{"Host", "Time", "App Version", "User", "Test ID", "Test Title", "Result", "Return Code", "Errors", "Stdout", "Stderr", "JIRA Ticker", "Remarks"}
 	for col, header := range headers {
-		if err := xlsxFile.SetCellValue(sheetName, _cell(col+1, headerRow), header); err != nil {
+		if err := xlsxFile.SetCellValue(sheetName, rp.Cell(col+1, headerRow), header); err != nil {
 			return err
 		}
 	}
@@ -65,21 +66,21 @@ func saveTestReportToXLSX(hostName string, version string, accountResults *teste
 	testIDs := slices.Sorted(maps.Keys(tests))
 	for _, testId := range testIDs {
 		test := tests[testId]
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col, row), hostName)
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col+1, row), test.ExecStatus.ExecTime.Format(time.RFC822))
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col+2, row), version)
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col+3, row), accountResults.UserName)
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col+4, row), testId)
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col+5, row), testengine.GetAbstract(testId))
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col+6, row), testResult(test, false))
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col+7, row), test.ExecStatus.RetCode)
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col+8, row), strings.Join(test.ExecStatus.Error, "\n"))
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col+9, row), strings.Join(test.ExecStatus.Stdout, "\n"))
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col+10, row), strings.Join(test.ExecStatus.Stderr, "\n"))
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col, row), hostName)
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+1, row), test.ExecStatus.ExecTime.Format(time.RFC822))
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+2, row), version)
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+3, row), accountResults.UserName)
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+4, row), testId)
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+5, row), testengine.GetAbstract(testId))
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+6, row), testResult(test, false))
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+7, row), test.ExecStatus.RetCode)
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+8, row), strings.Join(test.ExecStatus.Error, "\n"))
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+9, row), strings.Join(test.ExecStatus.Stdout, "\n"))
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+10, row), strings.Join(test.ExecStatus.Stderr, "\n"))
 		row++
 	}
 
-	return formatCols(xlsxFile, sheetName, col, col+12, headerRow, row)
+	return rp.FormatCols(xlsxFile, sheetName, col, col+12, headerRow, row)
 }
 
 // saveScanResultsVNFBPT66ToXLS saves VNFBPT66 test results from multiple namespaces into an Excel sheet.
@@ -88,7 +89,7 @@ func saveTestReportToXLSX(hostName string, version string, accountResults *teste
 func saveTestResultsVNFBPT66ToXLS(report *HostTestReport, sheetName string, xlsxFile *excelize.File) error {
 	var err error
 
-	sheetName, err = setSheetName(xlsxFile, sheetName)
+	sheetName, err = rp.SetSheetName(xlsxFile, sheetName)
 	if err != nil {
 		return fmt.Errorf("failed to set sheet name; %w", err)
 	}
@@ -97,7 +98,7 @@ func saveTestResultsVNFBPT66ToXLS(report *HostTestReport, sheetName string, xlsx
 	headerRow := 1
 	headers := []string{"Host", "Time", "App Version", "User", "Name", "Value", "Type", "Confidence", "File Path", "Readable"}
 	for col, header := range headers {
-		if err := xlsxFile.SetCellValue(sheetName, _cell(col+1, headerRow), header); err != nil {
+		if err := xlsxFile.SetCellValue(sheetName, rp.Cell(col+1, headerRow), header); err != nil {
 			return err
 		}
 	}
@@ -114,16 +115,16 @@ func saveTestResultsVNFBPT66ToXLS(report *HostTestReport, sheetName string, xlsx
 				vnfbpt66results, ok := test.ExecStatus.Data.([]*testengine.SecretDetectorResult)
 				if ok && vnfbpt66results != nil {
 					for _, result := range vnfbpt66results {
-						_ = xlsxFile.SetCellValue(sheetName, _cell(col, row), hostName)
-						_ = xlsxFile.SetCellValue(sheetName, _cell(col+1, row), test.ExecStatus.ExecTime.Format(time.RFC822))
-						_ = xlsxFile.SetCellValue(sheetName, _cell(col+2, row), report.Version)
-						_ = xlsxFile.SetCellValue(sheetName, _cell(col+3, row), userName)
-						_ = xlsxFile.SetCellValue(sheetName, _cell(col+4, row), result.Name())
-						_ = xlsxFile.SetCellValue(sheetName, _cell(col+5, row), result.Value())
-						_ = xlsxFile.SetCellValue(sheetName, _cell(col+6, row), result.Type())
-						_ = xlsxFile.SetCellValue(sheetName, _cell(col+7, row), result.Confidence())
-						_ = xlsxFile.SetCellValue(sheetName, _cell(col+8, row), result.File())
-						_ = xlsxFile.SetCellValue(sheetName, _cell(col+9, row), result.Readable())
+						_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col, row), hostName)
+						_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+1, row), test.ExecStatus.ExecTime.Format(time.RFC822))
+						_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+2, row), report.Version)
+						_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+3, row), userName)
+						_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+4, row), result.Name())
+						_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+5, row), result.Value())
+						_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+6, row), result.Type())
+						_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+7, row), result.Confidence())
+						_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+8, row), result.File())
+						_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col+9, row), result.Readable())
 						row++
 					}
 				}
@@ -132,13 +133,13 @@ func saveTestResultsVNFBPT66ToXLS(report *HostTestReport, sheetName string, xlsx
 	}
 
 	if row-headerRow == 1 {
-		_ = xlsxFile.SetCellValue(sheetName, _cell(col, row), "Nothing to report")
+		_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col, row), "Nothing to report")
 	}
-	return formatCols(xlsxFile, sheetName, col, col+9, headerRow, row)
+	return rp.FormatCols(xlsxFile, sheetName, col, col+9, headerRow, row)
 }
 
 func noResults(xlsxFile *excelize.File, sheetName string, row int, col int) {
-	_ = xlsxFile.SetCellValue(sheetName, _cell(col, row), "No secrets found")
+	_ = xlsxFile.SetCellValue(sheetName, rp.Cell(col, row), "No secrets found")
 }
 
 // SaveToXLSXFile generates and saves an Excel report for the given namespace test report to a timestamped XLSX file.
@@ -153,7 +154,7 @@ func SaveToXLSXFile(report *HostTestReport, filePath string, reportToXLSX func(*
 		return err
 	}
 
-	filePath = sanitizeFilePath(filePath, REPORT_NAME+"-"+report.HostName+"-"+time.Now().Format("2006-01-02_15-04-05_MST")+".xlsx", ".xlsx")
+	filePath = rp.SanitizeFilePath(filePath, REPORT_NAME+"-"+report.HostName+"-"+time.Now().Format("2006-01-02_15-04-05_MST")+".xlsx", ".xlsx")
 
 	if err := xlsxFile.SaveAs(filePath); err != nil {
 		return fmt.Errorf("failed to generate xlsx file due to: %w", err)

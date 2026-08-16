@@ -36,20 +36,21 @@ func Init() {
 }
 
 var appZapLogger *zap.Logger
+var appLoggerCloser func()
 
-func setupLogger(logLevel string, appName, appVersion string) (*zap.Logger, error) {
+func setupLogger(logLevel string, appName, appVersion string) (*zap.Logger, func(), error) {
 	var err error
 
 	appLogFile := fmt.Sprintf("%s.%s", appName, "log")
 	if _, err := os.Stat(appLogFile); err == nil {
 		if err := os.Remove(appLogFile); err != nil {
-			return nil, fmt.Errorf("cannot remove %s log file due to : %w", appLogFile, err)
+			return nil, nil, fmt.Errorf("cannot remove %s log file due to : %w", appLogFile, err)
 		}
 	}
 
-	appLogger, err := log.InitLogger(logLevel, appLogFile)
+	appLogger, appLoggerCloser, err := log.InitLogger(logLevel, appLogFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize logger: %w", err)
+		return nil, nil, fmt.Errorf("failed to initialize logger: %w", err)
 	}
 
 	// Replace the global Zap logger with our configured instance.
@@ -58,7 +59,7 @@ func setupLogger(logLevel string, appName, appVersion string) (*zap.Logger, erro
 
 	zap.L().Info("Logger initialized via Cobra flags", zap.String("configured_level", logLevel))
 	zap.L().Info("Application starting up...", zap.String("version", appVersion))
-	return appLogger, nil
+	return appLogger, appLoggerCloser, nil
 }
 
 func NewRootCmd(ctx context.Context, appName, appVersion, buildTime, gitCommit string) *cobra.Command {
@@ -86,7 +87,7 @@ func NewRootCmd(ctx context.Context, appName, appVersion, buildTime, gitCommit s
 					logLevel = "debug"
 				}
 
-				if appZapLogger, err = setupLogger(logLevel, appName, appVersion); err != nil {
+				if appZapLogger, appLoggerCloser, err = setupLogger(logLevel, appName, appVersion); err != nil {
 					return fmt.Errorf("failed to initialize logger: %w", err)
 				}
 			}
@@ -96,7 +97,7 @@ func NewRootCmd(ctx context.Context, appName, appVersion, buildTime, gitCommit s
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
 			if appZapLogger != nil {
 				appZapLogger.Sync()
-				log.CloseLogger()
+				appLoggerCloser()
 			}
 			return nil
 		},

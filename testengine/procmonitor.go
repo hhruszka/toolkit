@@ -29,7 +29,7 @@ func enum05(testId string, depExecResults map[string]map[string]*ExecutionStatus
 	execTime := time.Now().UTC()
 	procs, err = utils.ProcessMonitor(interval, probing)
 	if err != nil {
-		return nil
+		return NewExecutionStatus(InternalAppError, err.Error(), "", "", execTime)
 	}
 
 	return NewExecutionStatus(retCode, "", "", "", execTime)

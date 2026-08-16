@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
+	rp "gitlabe1.ext.net.nokia.com/cn-pentesting-repo/bpt-common/report"
 )
 
 func SaveReportToTextFile(hostTestReport *HostTestReport, filePath string) error {
@@ -65,16 +66,16 @@ func SaveDetailedReportToTextFile(hostTestReport *HostTestReport, filePath strin
 				t.SetOutputMirror(&buf)
 				t.AppendRow(table.Row{"Exit status:", testsResults.ExecTestStatuses[testId].ExecStatus.RetCode})
 				t.AppendSeparator()
-				t.AppendRow(table.Row{"Error", wrap(testsResults.ExecTestStatuses[testId].ExecStatus.Error, 100)})
+				t.AppendRow(table.Row{"Error", rp.WrapText(testsResults.ExecTestStatuses[testId].ExecStatus.Error, 100)})
 				t.AppendSeparator()
-				t.AppendRow(table.Row{"Stdout:", wrap(testsResults.ExecTestStatuses[testId].ExecStatus.Stdout, 100)})
+				t.AppendRow(table.Row{"Stdout:", rp.WrapText(testsResults.ExecTestStatuses[testId].ExecStatus.Stdout, 100)})
 				t.AppendSeparator()
-				t.AppendRow(table.Row{"Stderr:", wrap(testsResults.ExecTestStatuses[testId].ExecStatus.Stderr, 100)})
+				t.AppendRow(table.Row{"Stderr:", rp.WrapText(testsResults.ExecTestStatuses[testId].ExecStatus.Stderr, 100)})
 				t.AppendSeparator()
 			}
 		}
 		t.Render()
-		fmt.Fprintf(&report, buf.String())
+		fmt.Fprint(&report, buf.String())
 	}
 
 	return saveTextReportToFile(hostTestReport.HostName, filePath, report.Bytes())
