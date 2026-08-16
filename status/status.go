@@ -1,9 +1,9 @@
-package verdict
+package status
 
-type Verdict int
+type Status int
 
 const (
-	Passed Verdict = iota
+	Passed Status = iota
 	Failed
 	Review  // manual assessment needed
 	Skipped // premise doesn't hold (notApplicable)
