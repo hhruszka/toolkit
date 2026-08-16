@@ -14,10 +14,10 @@ func CalculateMemoryLimits() (MemoryConfig, error) {
 		}, nil
 	}
 
-	const gb = 1 << 30
+	var gb int64 = 1 << 30
 	return MemoryConfig{
 		TotalSystemRAM: gb,
-		GoMemLimit:     int64(0.80 * gb),
-		SemaphoreLimit: int64(0.55 * gb),
+		GoMemLimit:     int64(0.80 * float64(gb)),
+		SemaphoreLimit: int64(0.55 * float64(gb)),
 	}, nil
 }
