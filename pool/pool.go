@@ -3,19 +3,21 @@ package pool
 import "sync"
 
 type BufferPool struct {
-	pool      sync.Pool
-	keepLimit int
+	pool        sync.Pool
+	keepLimit   int
+	wasteFactor float64
 }
 
 // NewBufferPool initializes and returns a new BufferPool with buffers capped at the specified limit.
-func NewBufferPool(max int) *BufferPool {
+func NewBufferPool(max int, maxWasteFactor float64) *BufferPool {
 	return &BufferPool{
 		pool: sync.Pool{
 			New: func() any {
 				return make([]byte, 0)
 			},
 		},
-		keepLimit: max,
+		keepLimit:   max,
+		wasteFactor: maxWasteFactor,
 	}
 }
 
@@ -38,7 +40,7 @@ func (bp *BufferPool) Get(size int) []byte {
 	buf := bp.pool.Get().([]byte)
 
 	// Check if it's big enough
-	if cap(buf) < size {
+	if cap(buf) < size || float64(cap(buf)) > float64(size)*bp.wasteFactor {
 		// Too small? Discard it and make a new one.
 		buf = make([]byte, 0, size)
 	}
