@@ -14,30 +14,30 @@ func ValidateFormat(format string, supportedFormats []string) (string, string, e
 }
 
 // validateFormat validates the provided report format against a list of supported formats and checks the file path validity.
-func validateFormat(format string, supportedFormats []string) (string, string, error) {
+func validateFormat(reportFormat string, supportedFormats []string) (string, string, error) {
 	var reportFile string
 
-	format = strings.ToLower(format)
-	format = strings.TrimSpace(format)
+	reportFormat = strings.ToLower(reportFormat)
+	reportFormat = strings.TrimSpace(reportFormat)
 
 	// 1. Check if config.Format specifies format and supported
 	// 2. Since config.Format does not specify format, check if file path specifies format through extension
-	if slices.Contains(supportedFormats, format) {
-		return format, "", nil
+	if slices.Contains(supportedFormats, reportFormat) {
+		return reportFormat, "", nil
 	}
 
-	reportFile = format
-	extension := filepath.Ext(format)
+	reportFile = reportFormat
+	extension := filepath.Ext(reportFormat)
 
 	if extension != "" {
-		format = extension[1:]
+		reportFormat = extension[1:]
 	}
-	if extension == "" || format == "" {
+	if extension == "" || reportFormat == "" {
 		return "", "", fmt.Errorf("missing extension in the provided file path %s", reportFile)
 	}
 
-	if !slices.Contains(supportedFormats, format) {
-		return "", "", fmt.Errorf("%s is not a valid report format for the output option (-o or --output), aborting", format)
+	if !slices.Contains(supportedFormats, reportFormat) {
+		return "", "", fmt.Errorf("%s is not a valid report format for the output option (-o or --output), aborting", reportFormat)
 	}
 
 	if strings.TrimSuffix(reportFile, filepath.Ext(reportFile)) == "" {
@@ -54,5 +54,5 @@ func validateFormat(format string, supportedFormats []string) (string, string, e
 			return "", "", fmt.Errorf("failed to access the provided file path due to: %w", err)
 		}
 	}
-	return format, reportFile, nil
+	return reportFormat, reportFile, nil
 }
