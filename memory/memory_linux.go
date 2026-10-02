@@ -62,8 +62,8 @@ func getSystemMemory() int64 {
 		return int64(info.Totalram) * int64(info.Unit)
 	}
 
-	// 4. Absolute fallback if everything fails (default to 1GB to prevent panics)
-	return 1024 * 1024 * 1024
+	// 4. Absolute fallback if everything fails
+	return math.MaxInt64
 }
 
 var UnexpectedStatMemoryFormatError = errors.New("unexpected format in /proc/self/statm")
